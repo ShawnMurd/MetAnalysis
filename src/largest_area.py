@@ -1,5 +1,5 @@
 """
-Functions to Determine the Largest Continguous Area in a 2D Boolean Array
+Functions Related to the Largest Contiguous Area within a 2D Array
 
 Code is adapted from https://geeksforgeeks.org/find-length-largest-region-boolean-matrix/
 
@@ -46,6 +46,15 @@ def DFS(M, row, col, visited, count, iinds, jinds):
 
 
 def largestArea(x):
+    """
+    Find the largest continguous area where x == True
+    Inputs:
+        x = 2D array of boolean values
+    Outputs:
+        result = Number of grid points in largest area in x
+        iinds_f, jinds_f = Indices corresponding to the grid points within the largest contiguous 
+            area in x
+    """
 
     # Create array to keep track of which array elements have been counted
 
@@ -74,6 +83,31 @@ def largestArea(x):
                     jinds_f = jinds
 
     return result, iinds_f, jinds_f
+
+
+def weighted_avg_ctr(A, wgts, thres):
+    """
+    Find the weighted average of A using the weights in wgts. Before computing the weighted average,
+    all weights outside the largest, contiguous area where wgts > thres are set to 0. In essence,
+    this function finds the center (using a weighted average) of the largest, contiguous area where 
+    wgts > thres.
+    Inputs:
+        A = 2D array to take average of
+        wgts = 2D array of weights
+        thres = Only compute weighted average in the largest, contiguous area where wgts > thres
+    Outputs:
+        Weighted-average from A
+    """
+
+    _, iind, jind = largestArea(wgts >= thres)
+
+    mask = np.zeros(wgts.shape)
+    mask[iind, jind] = 1
+    wgts = mask * wgts
+
+    print(wgts)
+  
+    return np.average(A, weights=wgts)
 
 
 """

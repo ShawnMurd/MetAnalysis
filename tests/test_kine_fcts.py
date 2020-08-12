@@ -13,7 +13,7 @@ sfm5282@psu.edu
 
 import numpy as np
 import xarray as xr
-import kine_fcts as kf
+import MetAnalysis.src.kine_fcts as kf
 
 
 #---------------------------------------------------------------------------------------------------
@@ -23,9 +23,12 @@ import kine_fcts as kf
 def test_circ():
     
     # Read in reference circulation values
-    
-    cm1_ds = xr.open_dataset(r'..\sample_data\cm1_winds.nc')
-    
+
+    try:    
+        cm1_ds = xr.open_dataset(r'..\sample_data\cm1_winds.nc')
+    except:
+        cm1_ds = xr.open_dataset(r'../sample_data/cm1_winds.nc')
+
     circ_ref = cm1_ds['circ_1km'].values
     u = cm1_ds['uinterp'].values
     v = cm1_ds['vinterp'].values
