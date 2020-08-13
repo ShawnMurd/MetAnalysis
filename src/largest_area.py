@@ -105,8 +105,6 @@ def weighted_avg_ctr(A, wgts, thres):
     mask[iind, jind] = 1
     wgts = mask * wgts
 
-    print(wgts)
-  
     return np.average(A, weights=wgts)
 
 
