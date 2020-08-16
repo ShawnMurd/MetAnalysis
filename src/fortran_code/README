@@ -1,0 +1,5 @@
+The fortran subroutines in these .F files can be wrapped using f2py to create 
+shared object (.so) files, which can then be imported into Python. To wrap 
+fortran files, use the following command:
+
+f2py -c <filename>.F -m <filename>
