@@ -1,0 +1,6 @@
+To run tests, simply enter the command `pytest` into the terminal window.
+
+All scripts starting with "test_" will be executed and all functions starting with 
+"test_" will be run.
+
+To only run a specific test, use the command `pytest <filename>`

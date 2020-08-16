@@ -1,0 +1,5 @@
+[
+  "test_idealized_sounding_fcts.py::test_theta",
+  "test_idealized_sounding_fcts.py::test_thetav",
+  "test_idealized_sounding_fcts.py::test_getTv"
+]
