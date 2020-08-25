@@ -34,6 +34,8 @@ import murdzek_utils.getB as gB
 def theta(T, p):
     """
     Compute potential temperature
+    Reference:
+        Markowski and Richardson (2010) eqn 2.7
     Inputs:
         T = Temperature (K)
         p = Pressure (Pa)
@@ -52,7 +54,9 @@ def theta(T, p):
 
 def thetav(T, p, qv):
     """
-    Compute virtual potential tempertaure
+    Compute virtual potential temperature
+    Reference:
+        Markowski and Richardson (2010) eqn 2.20
     Inputs:
         T = Temperature (K)
         p = Pressure (Pa)
@@ -72,11 +76,13 @@ def thetav(T, p, qv):
 def getTv(T, qv):
     """
     Compute virtual tempertaure
+    Reference:
+        Markowski and Richardson (2010) eqn 2.19
     Inputs:
         T = Temperature (K)
         qv = Water vapor mass mixing ratio (kg / kg)
     Outputs:
-        thetav = Virtual potential temperature (K)
+        Tv = Virtual potential temperature (K)
     """
     
     Rv = 461.5
@@ -108,6 +114,8 @@ def getTfromTv(Tv, qv):
 def buoy(T_p, p_p, qv_p, T_env, p_env, qv_env):
     """
     Compute buoyancy
+    Reference:
+        Markowski and Richardson (2010) eqn 2.78
     Inputs:
         T_p = Parcel temperature (K)
         p_p = Parcel pressure (Pa)
@@ -128,6 +136,26 @@ def buoy(T_p, p_p, qv_p, T_env, p_env, qv_env):
     
     return B
 
+
+def exner(p):
+    """
+    Compute the Exner function
+    Reference:
+        Markowski and Richardson (2010) Chpt 2, footnote 8 (pg 20)
+    Inputs:
+        p = Pressure (Pa)
+    Outputs:
+        pi = Exner function (unitless)
+    """
+
+    rd = 287.04
+    cp = 1005.7
+    p00 = 100000.0
+
+    pi = (p / p00) ** (rd / cp)
+
+    return pi
+ 
 
 #---------------------------------------------------------------------------------------------------
 # Define Function to Print Environmental Parameters
@@ -151,38 +179,24 @@ def print_env_param(T, p, qv, print_results=True, adiabat=1):
             4: Reversible, with ice
     """
     
-    # Put T and p in correct units
+    # Put T and p in correct units (deg C and hPa)
     
     T = T - 273.15
     p = p / 100.0
     
-    # Compute sounding parameters using getcape
-    
-    out_sb = gc.getcape(1, adiabat, p, T, qv)
-    out_mu = gc.getcape(2, adiabat, p, T, qv)
-    out_ml = gc.getcape(3, adiabat, p, T, qv)
-    
-    # Fill param_dict
+    # Compute sounding parameters using getcape and fill param_dict
     
     param_dict = {}
     
-    param_dict['SBCAPE'] = out_sb[0]
-    param_dict['SBCIN'] = out_sb[1]
-    param_dict['SBLCL'] = out_sb[2]
-    param_dict['SBLFC'] = out_sb[3]
-    param_dict['SBEL'] = out_sb[4]
-    
-    param_dict['MUCAPE'] = out_mu[0]
-    param_dict['MUCIN'] = out_mu[1]
-    param_dict['MULCL'] = out_mu[2]
-    param_dict['MULFC'] = out_mu[3]
-    param_dict['MUEL'] = out_mu[4]
-    
-    param_dict['MLCAPE'] = out_ml[0]
-    param_dict['MLCIN'] = out_ml[1]
-    param_dict['MLLCL'] = out_ml[2]
-    param_dict['MLLFC'] = out_ml[3]
-    param_dict['MLEL'] = out_ml[4]
+    for i, p in enumerate(['SB', 'MU', 'ML']):
+
+        out = gc.getcape(i+1, adiabat, p, T, qv)
+
+        param_dict[p + 'CAPE'] = out[0]
+        param_dict[p + 'CIN'] = out[1]
+        param_dict[p + 'LCL'] = out[2]
+        param_dict[p + 'LFC'] = out[3]
+        param_dict[p + 'EL'] = out[4]
     
     # Print results to screen
     
@@ -199,8 +213,45 @@ def print_env_param(T, p, qv, print_results=True, adiabat=1):
 
 
 #---------------------------------------------------------------------------------------------------
-# Function to Determine Effective Inflow Layer (Thompson et al 2007, WAF)
+# Define Functions Related to Vertical Profiles of Sounding Parameters
 #---------------------------------------------------------------------------------------------------
+
+def sounding_pressure(z, th, qv, p0):
+    """
+    Computes the pressure profile for the given height, temperature, and water vapor mixing ratio
+    profile using an upward integration of the hydrostatic balance equation.
+    Inputs:
+        z = Sounding heights (m)
+        th = Sounding potential temperatures (K)
+        qv = Sounding water vapor mass mixing ratios (kg / kg)
+        p0 = Pressure corresponding to z[0] (Pa)
+    Outputs:
+        p = Sounding pressure (Pa)
+    """
+
+    # Define constants
+
+    reps = 461.5 / 287.04
+    rd = 287.04
+    cp = 1005.7
+    p00 = 100000.0
+    g = 9.81
+
+    # Compute Exner function and virtual potential temperature
+
+    pi = np.zeros(z.shape)
+    pi[0] = exner(p0)
+    thv = th * (1.0 + (reps * qv)) / (1.0 + qv)
+
+    # Integrate hydrostatic equation upward from surface
+
+    for i in range(1, z.size):
+        pi[i] = pi[i-1] - g * (z[i] - z[i-1]) / (cp * 0.5 * (thetav[i] + thetav[i-1]))
+
+    p = p00 * (pi ** (cp / rd))
+
+    return p
+
 
 def effect_inflow(cm1_sounding, min_cape=100, max_cin=250, adiabat=1):
     """
@@ -280,9 +331,9 @@ def effect_inflow(cm1_sounding, min_cape=100, max_cin=250, adiabat=1):
     # Determine bottom of effective inflow layer
     
     i = 0
-    cape, cin, zlcl, zlfc, zel, ps, ts, qvs = gc.getcape(1, adiabat, p[i:], T[i:], qv[i:])
+    cape, cin, _, _, _, _, _, _ = gc.getcape(1, adiabat, p[i:], T[i:], qv[i:])
     while (cape < min_cape) or (cin > max_cin):
-        cape, cin, zlcl, zlfc, zel, ps, ts, qvs = gc.getcape(1, adiabat, p[i:], T[i:], qv[i:])
+        cape, cin, _, _, _, _, _, _ = gc.getcape(1, adiabat, p[i:], T[i:], qv[i:])
         i = i + 1
     i_bot = i
     z_bot = z[i_bot]
@@ -290,7 +341,7 @@ def effect_inflow(cm1_sounding, min_cape=100, max_cin=250, adiabat=1):
     # Determine top of effective inflow layer
     
     while (cape > min_cape) and (cin < max_cin):
-        cape, cin, zlcl, zlfc, zel, ps, ts, qvs = gc.getcape(1, adiabat, p[i:], T[i:], qv[i:])
+        cape, cin, _, _, _, _, _, _ = gc.getcape(1, adiabat, p[i:], T[i:], qv[i:])
         i = i + 1
     i_top = i
     z_top = z[i_top]

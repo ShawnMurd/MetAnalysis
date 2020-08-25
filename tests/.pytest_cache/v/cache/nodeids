@@ -1,5 +1,8 @@
 [
   "test_idealized_sounding_fcts.py::test_theta",
   "test_idealized_sounding_fcts.py::test_thetav",
-  "test_idealized_sounding_fcts.py::test_getTv"
+  "test_idealized_sounding_fcts.py::test_getTv",
+  "test_idealized_sounding_fcts.py::test_getTfromTv",
+  "test_idealized_sounding_fcts.py::test_buoy",
+  "test_idealized_sounding_fcts.py::test_exner"
 ]
