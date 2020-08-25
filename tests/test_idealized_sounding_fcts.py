@@ -10,6 +10,7 @@ sfm5282@psu.edu
 #---------------------------------------------------------------------------------------------------
 
 import numpy as np
+import pandas as pd
 import MetAnalysis.src.idealized_sounding_fcts as isf
 import MetAnalysis.src.getcape as gc
 import pytest
@@ -52,4 +53,23 @@ def test_exner():
 #---------------------------------------------------------------------------------------------------
 
 def test_sounding_pressure():
-    return None
+
+    # Read in CM1 Weisman-Klemp sounding
+
+    wk_df = pd.read_csv('../sample_data/cm1_weisman_klemp_snd.csv')    
+
+    z = wk_df['z (m)'].values
+    th = wk_df['theta (K)'].values
+    qv = wk_df['qv (kg/kg)'].values
+    p = wk_df['prs (Pa)'].values
+
+    # Compute pressures
+
+    p_isf = isf.sounding_pressure(z, th, qv, p[0])
+
+    np.testing.assert_allclose(p_isf, p, atol=0.02)
+
+
+"""
+End test_idealized_sounding_fcts.py
+""" 

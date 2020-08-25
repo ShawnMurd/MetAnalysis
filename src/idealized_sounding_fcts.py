@@ -246,7 +246,7 @@ def sounding_pressure(z, th, qv, p0):
     # Integrate hydrostatic equation upward from surface
 
     for i in range(1, z.size):
-        pi[i] = pi[i-1] - g * (z[i] - z[i-1]) / (cp * 0.5 * (thetav[i] + thetav[i-1]))
+        pi[i] = pi[i-1] - g * (z[i] - z[i-1]) / (cp * 0.5 * (thv[i] + thv[i-1]))
 
     p = p00 * (pi ** (cp / rd))
 
