@@ -31,6 +31,26 @@ import murdzek_utils.getB as gB
 # Define Basic Thermodynamic Functions
 #---------------------------------------------------------------------------------------------------
 
+def exner(p):
+    """
+    Compute the Exner function
+    Reference:
+        Markowski and Richardson (2010) Chpt 2, footnote 8 (pg 20)
+    Inputs:
+        p = Pressure (Pa)
+    Outputs:
+        pi = Exner function (unitless)
+    """
+
+    rd = 287.04
+    cp = 1005.7
+    p00 = 100000.0
+
+    pi = (p / p00) ** (rd / cp)
+
+    return pi
+
+
 def theta(T, p):
     """
     Compute potential temperature
@@ -43,34 +63,20 @@ def theta(T, p):
         theta = Potential temperature  (K)
     """
     
-    p0 = 1.0e5
-    cp = 1005.7
-    Rd = 287.04
-    
-    theta = T * ((p0 / p) ** (Rd / cp))
-    
-    return theta
+    return T / exner(p)
 
 
-def thetav(T, p, qv):
+def getTfromTheta(theta, p):
     """
-    Compute virtual potential temperature
-    Reference:
-        Markowski and Richardson (2010) eqn 2.20
+    Compute the temperature using the potential temperature and pressure
     Inputs:
-        T = Temperature (K)
+        theta = Potential temperature (K)
         p = Pressure (Pa)
-        qv = Water vapor mass mixing ratio (kg / kg)
     Outputs:
-        thetav = Virtual potential temperature (K)
+        T = Temperature (K)
     """
     
-    Rv = 461.5
-    Rd = 287.04
-    
-    thetav = theta(T, p) * (1.0 + ((Rv / Rd) * qv)) / (1.0 + qv)
-    
-    return thetav
+    return theta * exner(p)
 
 
 def getTv(T, qv):
@@ -91,6 +97,22 @@ def getTv(T, qv):
     Tv = T * (1.0 + ((Rv / Rd) * qv)) / (1.0 + qv)
     
     return Tv
+
+
+def thetav(T, p, qv):
+    """
+    Compute virtual potential temperature
+    Reference:
+        Markowski and Richardson (2010) eqn 2.20
+    Inputs:
+        T = Temperature (K)
+        p = Pressure (Pa)
+        qv = Water vapor mass mixing ratio (kg / kg)
+    Outputs:
+        thetav = Virtual potential temperature (K)
+    """
+    
+    return getTv(theta(T, p), qv)
 
 
 def getTfromTv(Tv, qv):
@@ -136,26 +158,6 @@ def buoy(T_p, p_p, qv_p, T_env, p_env, qv_env):
     
     return B
 
-
-def exner(p):
-    """
-    Compute the Exner function
-    Reference:
-        Markowski and Richardson (2010) Chpt 2, footnote 8 (pg 20)
-    Inputs:
-        p = Pressure (Pa)
-    Outputs:
-        pi = Exner function (unitless)
-    """
-
-    rd = 287.04
-    cp = 1005.7
-    p00 = 100000.0
-
-    pi = (p / p00) ** (rd / cp)
-
-    return pi
- 
 
 #---------------------------------------------------------------------------------------------------
 # Define Function to Print Environmental Parameters
@@ -253,12 +255,59 @@ def sounding_pressure(z, th, qv, p0):
     return p
 
 
-def effect_inflow(cm1_sounding, min_cape=100, max_cin=250, adiabat=1):
+def cm1_snd_helper(cm1_sounding):
+    """
+    Extracts the temperature, water vapor mass mixing ratio, pressure, height, and wind profiles 
+    from a CM1 input sounding file.
+    Inputs:
+        cm1_sounding = CM1 input sounding file
+    Outputs:
+        out_df = DataFrame with:
+            temperature (K)
+            water vapor mass mixing ratio (kg / kg)
+            pressure (Pa)
+            height (m)
+            u wind component (m / s)
+            v wind component (m / s)
+    """
+
+    # Extract data from cm1_sounding
+
+    sounding = pd.read_csv(cm1_sounding, delim_whitespace=True, header=None,
+                           names=['z', 'theta', 'qv', 'u', 'v'], skiprows=1)
+
+    fptr = open(cm1_sounding)
+    line1 = fptr.readline().split()
+
+    p0 = float(line1[0]) * 100.0
+    z = np.concatenate(([0], sounding['z'].values))
+    th = np.concatenate(([float(line1[1])], sounding['theta'].values))
+    qv = np.concatenate(([float(line1[2])], sounding['qv'].values)) / 1000.0
+    u = np.concatenate(([np.nan], sounding['u'].values))
+    v = np.concatenate(([np.nan], sounding['v'].values))
+
+    fptr.close()
+
+    # Compute pressure and temperature profile
+
+    p = sounding_pressure(z, th, qv, p0)
+    T = getTfromTheta(th, p)
+
+    # Create output DataFrame
+
+    out_df = pd.DataFrame({'T':T, 'qv':qv, 'p':p, 'z':z, 'u':u, 'v':v})
+
+    return out_df
+
+
+def effect_inflow(p, T, qv, min_cape=100, max_cin=250, adiabat=1):
     """
     Determine the effective inflow layer using the empirical definition of Thompson et al. 
     (2007, WAF).
     Inputs:
-        cm1_sounding = input_sounding file for CM1
+        p = Pressure (Pa)
+        T = Temperature (K)
+        qv = Water vapor mass mixing ratio (kg / kg)
     Outputs:
         z_top = Pressure at top of effective inflow layer (m)
         z_bot = Pressure at bottom of effective inflow layer (m)
@@ -272,57 +321,6 @@ def effect_inflow(cm1_sounding, min_cape=100, max_cin=250, adiabat=1):
             4: Reversible, with ice
     """
     
-    # Define constants
-    
-    reps = 461.5 / 287.04
-    rd = 287.04
-    cp = 1005.7
-    p00 = 100000.0
-    g = 9.81
-    
-    # Read in body of sounding
-    
-    sounding = pd.read_csv(cm1_sounding, delim_whitespace=True, header=None, 
-                           names=['z', 'theta', 'qv', 'u', 'v'], skiprows=1)
-    
-    # Initialize arrays
-    
-    z = np.zeros(len(sounding) + 1)
-    qv = np.zeros(len(sounding) + 1)
-    theta = np.zeros(len(sounding) + 1)
-    pi = np.zeros(len(sounding) + 1)
-    
-    # Read in surface conditions of sounding
-    
-    fptr = open(cm1_sounding)
-    line1 = fptr.readline().split()
-    
-    p_sfc = float(line1[0]) * 100.0
-    theta[0] = float(line1[1])
-    qv[0] = float(line1[2]) / 1000.0
-    
-    fptr.close()
-    
-    # Fill arrays
-    
-    z[1:] = sounding['z'].values
-    theta[1:] = sounding['theta'].values
-    qv[1:] = sounding['qv'].values / 1000.0
-    
-    # Compute derived quantities
-    
-    thetav = theta * (1.0 + (reps * qv)) / (1.0 + qv)
-    pi[0] = (p_sfc / p00) ** (rd / cp)
-    
-    # Integrate hydrostatic balance to get pressure array (following isnd = 7 section from base.F 
-    # from CM1)
-    
-    for i in range(1, len(sounding)):
-        pi[i] = pi[i-1] - g * (z[i] - z[i-1]) / (cp * 0.5 * (thetav[i] + thetav[i-1]))
-        
-    p = p00 * (pi ** (cp / rd))
-    T = theta * pi
-    
     # Put p, T, and q in correct units
     
     p = p / 100.0
@@ -335,16 +333,14 @@ def effect_inflow(cm1_sounding, min_cape=100, max_cin=250, adiabat=1):
     while (cape < min_cape) or (cin > max_cin):
         cape, cin, _, _, _, _, _, _ = gc.getcape(1, adiabat, p[i:], T[i:], qv[i:])
         i = i + 1
-    i_bot = i
-    z_bot = z[i_bot]
+    z_bot = z[i]
     
     # Determine top of effective inflow layer
     
     while (cape > min_cape) and (cin < max_cin):
         cape, cin, _, _, _, _, _, _ = gc.getcape(1, adiabat, p[i:], T[i:], qv[i:])
         i = i + 1
-    i_top = i
-    z_top = z[i_top]
+    z_top = z[i]
     
     return z_bot, z_top
 
@@ -541,6 +537,13 @@ def param_vprof_MW_df(MW_df, zbot, ztop, adiabat=1):
 
     return param_df, B, z
 
+
+#---------------------------------------------------------------------------------------------------
+# Add Weisman-Klemp Sounding Here
+#---------------------------------------------------------------------------------------------------
+
+def weisman_klemp():
+    return None
 
 #---------------------------------------------------------------------------------------------------
 # Functions for McCaul-Weisman Analytic Sounding
