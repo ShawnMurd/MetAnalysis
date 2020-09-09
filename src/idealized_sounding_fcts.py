@@ -309,8 +309,8 @@ def effect_inflow(p, T, qv, min_cape=100, max_cin=250, adiabat=1):
         T = Temperature (K)
         qv = Water vapor mass mixing ratio (kg / kg)
     Outputs:
-        z_top = Pressure at top of effective inflow layer (m)
-        z_bot = Pressure at bottom of effective inflow layer (m)
+        p_top = Pressure at top of effective inflow layer (Pa)
+        p_bot = Pressure at bottom of effective inflow layer (Pa)
     Keywords:
         min_cape = Minimum amount of CAPE a parcel must have to be in the inflow layer (J / kg)
         max_cin = Maximum amount of CIN a parcel can have to be in the inflow layer (J / kg)
@@ -333,16 +333,16 @@ def effect_inflow(p, T, qv, min_cape=100, max_cin=250, adiabat=1):
     while (cape < min_cape) or (cin > max_cin):
         cape, cin, _, _, _, _, _, _ = gc.getcape(1, adiabat, p[i:], T[i:], qv[i:])
         i = i + 1
-    z_bot = z[i]
+    p_bot = p[i] * 100
     
     # Determine top of effective inflow layer
     
     while (cape > min_cape) and (cin < max_cin):
         cape, cin, _, _, _, _, _, _ = gc.getcape(1, adiabat, p[i:], T[i:], qv[i:])
         i = i + 1
-    z_top = z[i]
+    p_top = p[i] * 100
     
-    return z_bot, z_top
+    return p_top, p_bot
 
 
 def param_vprof(cm1_sounding, zbot, ztop, adiabat=1, ric=0, rjc=0, zc=1.5, bhrad=10.0, bvrad=1.5,

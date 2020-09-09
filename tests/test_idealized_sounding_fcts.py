@@ -76,7 +76,24 @@ def test_sounding_pressure():
 
 
 def test_effect_inflow():
-    return None
+
+    # Read in CM1 Weisman-Klemp sounding
+
+    wk_df = pd.read_csv('../sample_data/cm1_weisman_klemp_snd.csv')
+
+    T = wk_df['theta (K)'].values * wk_df['pi'].values
+    qv = wk_df['qv (kg/kg)'].values
+    p = wk_df['prs (Pa)'].values
+
+    # Compute effective inflow layer
+
+    p_top1, p_bot1 = isf.effect_inflow(p, T, qv)
+    p_top2, p_bot2 = isf.effect_inflow(p, T, qv, min_cape=100, max_cin=30)
+
+    assert p_top1 == pytest.approx(68147.65, 0.1)
+    assert p_top2 == pytest.approx(68147.65, 0.1)
+    assert p_bot1 == pytest.approx(99437.76, 0.1)
+    assert p_bot2 == pytest.approx(95014.45, 0.1)
 
 
 """
