@@ -79,6 +79,41 @@ def getTfromTheta(theta, p):
     return theta * exner(p)
 
 
+def get_es(T):
+    """
+    Compute equilibrium vapor pressure
+    Reference:
+        Markowski and Richardson (2010) eqn 2.16
+    Inputs:
+        T = Temperature (K)
+    Outputs:
+        e_s = equilibrium vapor pressure over liquid water (Pa)
+    """
+  
+    T = T - 273.15
+    e_s = 611.2 * np.exp(17.67 * T / (T + 243.5))
+
+    return e_s
+
+
+def get_qvl(T, p):
+    """
+    Compute equilibrium water vapor mass mixing ratio
+    Inputs:
+        T = Temperature (K)
+    Outputs:
+        qvl = Equilibrium water vapor mass mixing ratio (kg / kg)
+    """
+
+    Rv = 461.5
+    Rd = 287.04
+    eps = Rd / Rv
+    es = get_es(T)
+    qvl = eps * es / (p - es)
+
+    return qvl
+
+
 def getTv(T, qv):
     """
     Compute virtual tempertaure
@@ -369,55 +404,13 @@ def param_vprof(cm1_sounding, zbot, ztop, adiabat=1, ric=0, rjc=0, zc=1.5, bhrad
         maintain_rh = Keep constant RH in initiating warm bubble
         xloc, yloc = Horizontal location of vertical profile (km)
     """
-    
-    # Define constants
-    
-    reps = 461.5 / 287.04
-    rd = 287.04
-    cp = 1005.7
-    p00 = 100000.0
-    g = 9.81
-    
-    # Read in body of sounding
-    
-    sounding = pd.read_csv(cm1_sounding, delim_whitespace=True, header=None, 
-                           names=['z', 'theta', 'qv', 'u', 'v'], skiprows=1)
-    
-    # Initialize arrays
-    
-    z = np.zeros(len(sounding) + 1)
-    qv = np.zeros(len(sounding) + 1)
-    theta = np.zeros(len(sounding) + 1)
-    pi = np.zeros(len(sounding) + 1)
-    
-    # Read in surface conditions of sounding
-    
-    fptr = open(cm1_sounding)
-    line1 = fptr.readline().split()
-    
-    p_sfc = float(line1[0]) * 100.0
-    theta[0] = float(line1[1])
-    qv[0] = float(line1[2]) / 1000.0
-    
-    fptr.close()
-    
-    # Fill arrays
-    
-    z[1:] = sounding['z'].values
-    theta[1:] = sounding['theta'].values
-    qv[1:] = sounding['qv'].values / 1000.0
-    
-    # Compute derived quantities
-    
-    thetav = theta * (1.0 + (reps * qv)) / (1.0 + qv)
-    pi[0] = (p_sfc / p00) ** (rd / cp)
-    
-    # Integrate hydrostatic balance to get pressure array (following isnd = 7 section from base.F 
-    # from CM1)
-    
-    for i in range(1, len(sounding)):
-        pi[i] = pi[i-1] - g * (z[i] - z[i-1]) / (cp * 0.5 * (thetav[i] + thetav[i-1]))
-    p = p00 * (pi ** (cp / rd))   
+   
+    snd_df = cm1_snd_helper(cm1_sounding)
+    z = snd_df['z'].values
+    T = snd_df['T'].values
+    p = snd_df['p'].values
+    pi = exner(p)
+    qv = snd_df['qv'].values
 
     # Add initiating warm bubble
 
@@ -425,9 +418,9 @@ def param_vprof(cm1_sounding, zbot, ztop, adiabat=1, ric=0, rjc=0, zc=1.5, bhrad
                    ((yloc - rjc) / bhrad) ** 2.0 +
                    (((z / 1000) - zc) / bvrad) ** 2.0)
 
-    tha = np.zeros(theta.shape)
+    th = np.zeros(z.shape)
     inds = np.where(beta < 1.0)[0]
-    tha[inds] = bptpert * (np.cos(0.5 * np.pi * beta[inds]) ** 2.0)
+    th[inds] = bptpert * (np.cos(0.5 * np.pi * beta[inds]) ** 2.0)
 
     if maintain_rh:
         rh = qv / mc.saturation_mixing_ratio(p, theta * pi * units.kelvin)
