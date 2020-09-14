@@ -81,7 +81,7 @@ def getTfromTheta(theta, p):
 
 def get_es(T):
     """
-    Compute equilibrium vapor pressure
+    Compute equilibrium vapor pressure (over liquid water).
     Reference:
         Markowski and Richardson (2010) eqn 2.16
     Inputs:
@@ -98,9 +98,10 @@ def get_es(T):
 
 def get_qvl(T, p):
     """
-    Compute equilibrium water vapor mass mixing ratio
+    Compute equilibrium water vapor mass mixing ratio (over liquid water).
     Inputs:
         T = Temperature (K)
+        p = Pressure (Pa)
     Outputs:
         qvl = Equilibrium water vapor mass mixing ratio (kg / kg)
     """

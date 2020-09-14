@@ -29,9 +29,20 @@ def test_theta():
     th = isf.theta(273.0, 80000.0)
     assert th == pytest.approx(290.966533, 0.001)
 
+
 def test_getTfromTheta():
     T = isf.getTfromTheta(290.966533, 80000.0)
     assert T == pytest.approx(273.0, 0.001)
+
+
+def get_es():
+    es = isf.get_es(285.0)
+    assert es == pytest.approx(1387.743087, 0.01)
+
+
+def get_qvl():
+    qvl = isf.get_qvl(285.0, 90000.0)
+    assert qvl == pytest.approx(0.009749736, 0.00001)
 
 
 def test_getTv():
@@ -47,6 +58,7 @@ def test_thetav():
 def test_getTfromTv():
     T = isf.getTfromTv(273.8254766, 0.005)
     assert T == pytest.approx(273.0, 0.001)
+
 
 def test_buoy():
     B = isf.buoy(300.0, 90000.0, 0.0075, 295.0, 89500.0, 0.005)
