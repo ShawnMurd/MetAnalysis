@@ -17,14 +17,13 @@ Environment: local_py (Python 3.6)
 #---------------------------------------------------------------------------------------------------
 
 import numpy as np
-import metpy.calc as mc
-import metpy.constants as const
-from metpy.units import units
 import pandas as pd
-import warnings
 
-import murdzek_utils.getcape as gc
-import murdzek_utils.getB as gB
+import metpy.calc as mc
+from metpy.units import units
+
+import MetAnalysis.src.getcape as gc
+import MetAnalysis.src.getB as gB
 
 
 #---------------------------------------------------------------------------------------------------
