@@ -225,26 +225,20 @@ def print_env_param(T, p, qv, print_results=True, adiabat=1):
     # Compute sounding parameters using getcape and fill param_dict
     
     param_dict = {}
+    params = ['CAPE', 'CIN', 'LCL', 'LFC', 'EL']
+    units = ['J / kg', 'J / kg', 'm', 'm', 'm']
     
     for i, p in enumerate(['SB', 'MU', 'ML']):
-
         out = gc.getcape(i+1, adiabat, p, T, qv)
-
-        param_dict[p + 'CAPE'] = out[0]
-        param_dict[p + 'CIN'] = out[1]
-        param_dict[p + 'LCL'] = out[2]
-        param_dict[p + 'LFC'] = out[3]
-        param_dict[p + 'EL'] = out[4]
+        for j, param in enumerate(params):
+            param_dict[p + param] = out[j]
     
     # Print results to screen
     
     if print_results:
-        for i, p in enumerate(['SB', 'MU', 'ML']):
-            print('%sCAPE = %.2f J / kg' % (p, param_dict[p + 'CAPE']))
-            print('%sCIN = %.2f J / kg' % (p, param_dict[p + 'CIN']))
-            print('%sLCL = %.2f m' % (p, param_dict[p + 'LCL']))
-            print('%sLFC = %.2f m' % (p, param_dict[p + 'LFC']))
-            print('%sEL = %.2f m' % (p, param_dict[p + 'EL']))
+        for p in ['SB', 'MU', 'ML']:
+            for k, (param, u) in enumerate(zip(params, units)):
+                print('%s%s = %.2f %s' % (p, param, param_dict[p + param], u))
             print()
         
     return param_dict
@@ -332,6 +326,77 @@ def cm1_snd_helper(cm1_sounding):
     # Create output DataFrame
 
     out_df = pd.DataFrame({'T':T, 'qv':qv, 'p':p, 'z':z, 'u':u, 'v':v})
+
+    return out_df
+
+
+def create_calcsound_input(p, T, qv, fname):
+    """
+    Create input .dat file for Kerry Emanuel's calcsound program.
+    Inputs:
+        p = Pressure (Pa)
+        T = Temperature (K)
+        qv = Water vapor mass mixing ratio (kg / kg)
+        fname = File to save calcsound input file to (including path)
+    Outputs:
+        None, creates input file in the directory specified by path
+    """
+
+    # Put thermodynamic variables in correct units
+
+    p = p * 0.01
+    T = T - 273.15
+    qv = qv * 1000
+
+    # Write results to input file
+
+    fptr = open(fname, 'w')
+    fptr.write('  N= %d\n' % len(p))
+    fptr.write('   Pressure (mb)     Temperature (C)     Mixing Ratio (g/kg)\n')
+    fptr.write('   -------------     ---------------     -------------------\n')
+
+    for i in range(len(p)):
+        fptr.write('%.1f     %.1f     %.2f\n' % (p[i], T[i], qv[i]))
+
+    fptr.close()
+    return None
+
+
+def calcsound_out_to_df(out):
+    """
+    Read in a .out file from Kerry Emanuel's calcsound program as a pandas DataFrame.
+    Inputs:
+        out = Output file from Kerry Emanuel's calcsound program
+    Outputs:
+        out_df = DataFrame containing information from out
+    """
+
+    # Read in output file
+
+    fptr = open(out, 'r')
+    lines = fptr.readlines()
+    fptr.close()
+
+    # Parse output file contents
+
+    N = int((len(lines) - 11) / 2)
+    out_dict = {}
+    field1 = ['p', 'Tv (rev)', 'Trho (rev)', 'Tv (pseudo)', 'Trho (pseudo)']
+    field2 = ['Rev. PA', 'P.A. PA', 'Rev. NA', 'P.A. NA', 'Rev. CAPE', 'P.A. CAPE', 'DCAPE']
+    for f in field1:
+        out_dict[f] = []
+    for f in field2:
+        out_dict[f] = []
+
+    for i in range(3, N+3):
+        for f, val in zip(field1, lines[i].strip().split()):
+            out_dict[f].append(float(val))
+
+    for i in range(N+11, 2 * N + 11):
+        for f, val in zip(field2, lines[i].strip().split()[1:]):
+            out_dict[f].append(float(val))
+
+    out_df = pd.DataFrame(out_dict)
 
     return out_df
 

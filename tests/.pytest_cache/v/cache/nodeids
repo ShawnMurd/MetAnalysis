@@ -7,5 +7,6 @@
   "test_idealized_sounding_fcts.py::test_getTfromTv",
   "test_idealized_sounding_fcts.py::test_buoy",
   "test_idealized_sounding_fcts.py::test_sounding_pressure",
+  "test_idealized_sounding_fcts.py::test_calcsound_out_to_df",
   "test_idealized_sounding_fcts.py::test_effect_inflow"
 ]

@@ -87,6 +87,13 @@ def test_sounding_pressure():
     np.testing.assert_allclose(p_isf, p, atol=0.02)
 
 
+def test_calcsound_out_to_df():
+    df = isf.calcsound_out_to_df('../sample_data/oun1999050318.out')
+    DCAPE = np.array([0.0, 35.6, 49.3, 60.1, 66.1])
+    assert len(df) == 76
+    np.testing.assert_allclose(df['DCAPE'].values[:5], DCAPE, atol=0.05)
+
+
 def test_effect_inflow():
 
     # Read in CM1 Weisman-Klemp sounding
