@@ -324,7 +324,7 @@ def cm1_snd_helper(cm1_sounding):
 
     # Create output DataFrame
 
-    out_df = pd.DataFrame({'T':T, 'qv':qv, 'p':p, 'z':z, 'u':u, 'v':v})
+    out_df = pd.DataFrame({'T':T, 'th':th, 'qv':qv, 'p':p, 'z':z, 'u':u, 'v':v})
 
     return out_df
 
@@ -445,18 +445,19 @@ def effect_inflow(p, T, qv, min_cape=100, max_cin=250, adiabat=1):
     return p_top, p_bot
 
 
-def param_vprof(cm1_sounding, zbot, ztop, adiabat=1, ric=0, rjc=0, zc=1.5, bhrad=10.0, bvrad=1.5,
+def param_vprof(p, T, qv, zbot, ztop, adiabat=1, ric=0, rjc=0, zc=1.5, bhrad=10.0, bvrad=1.5,
                 bptpert=0.0, maintain_rh=False, xloc=0.0, yloc=0.0):
     """
     Compute vertical profiles of sounding parameters for a CM1 input sounding.
     Inputs:
-        cm1_sounding = input_sounding file for CM1
-        zbot = Bottom of layer to compute sounding parameters (m)
-        ztop = Top of layer to compute sounding parameters (m)
+        p = Pressure (Pa)
+        T = Temperature (K)
+        qv = Water vapor mass mixing ratio (kg / kg)
+        pbot = Bottom of layer to compute sounding parameters (Pa)
+        ptop = Top of layer to compute sounding parameters (Pa)
     Outputs:
         param_df = Sounding parameters dictionary
         B = 2D array of parcel buoyancies (m / s^2)
-        z = Heights (m)
     Keywords:
         adiabat = Adiabat option for getcape
             1: Pseudoadiabatic, liquid only
@@ -470,12 +471,8 @@ def param_vprof(cm1_sounding, zbot, ztop, adiabat=1, ric=0, rjc=0, zc=1.5, bhrad
         xloc, yloc = Horizontal location of vertical profile (km)
     """
    
-    snd_df = cm1_snd_helper(cm1_sounding)
-    z = snd_df['z'].values
-    T = snd_df['T'].values
-    p = snd_df['p'].values
+    th = theta(T, p)
     pi = exner(p)
-    qv = snd_df['qv'].values
 
     # Add initiating warm bubble
 
@@ -483,16 +480,21 @@ def param_vprof(cm1_sounding, zbot, ztop, adiabat=1, ric=0, rjc=0, zc=1.5, bhrad
                    ((yloc - rjc) / bhrad) ** 2.0 +
                    (((z / 1000) - zc) / bvrad) ** 2.0)
 
-    th = np.zeros(z.shape)
+    thpert = np.zeros(th.shape)
     inds = np.where(beta < 1.0)[0]
-    th[inds] = bptpert * (np.cos(0.5 * np.pi * beta[inds]) ** 2.0)
+    thpert[inds] = bptpert * (np.cos(0.5 * np.pi * beta[inds]) ** 2.0)
 
     if maintain_rh:
-        rh = qv / mc.saturation_mixing_ratio(p, theta * pi * units.kelvin)
-        qv = rh * mc.saturation_mixing_ratio(p, (theta + tha) * pi * units.kelvin)
+        rh = qv / get_qvl(th * pi, p)
+        qv = rh * get_qvl(th + thpert) * pi, p)
 
-    theta = theta + tha
-    T = theta * pi
+    th = th * thpert
+    T = th * pi
+    
+    # Determine indices for pbot and ptop
+
+    ibot = np.argmin(np.abs(p - pbot))
+    itop = np.argmin(np.abs(p - ptop))
     
     # Put p, T, and q in correct units
     
@@ -501,37 +503,28 @@ def param_vprof(cm1_sounding, zbot, ztop, adiabat=1, ric=0, rjc=0, zc=1.5, bhrad
     
     # Initialize output dictionary
     
-    ibot = np.argmin(np.abs(z - zbot))
-    itop = np.argmin(np.abs(z - ztop))
+    nlvls = len(p[ibot:itop+1])
 
-    nlvls = len(z[ibot:itop+1])
-    params = {}
+    param_dict = {}
+    params['p'] = p[ibot:itop+1]
+    params = ['CAPE', 'CIN', 'zlcl', 'zlfc', 'zel']    
+    for p in params:
+        params[p] = np.zeros(nlvls)
     
-    params['z'] = z[ibot:itop+1]
-    params['CAPE'] = np.zeros(nlvls)
-    params['CIN'] = np.zeros(nlvls)
-    params['zlcl'] = np.zeros(nlvls)
-    params['zlfc'] = np.zeros(nlvls)
-    params['zel'] = np.zeros(nlvls)
-    
-    B = np.empty((nlvls, z.size))
+    B = np.empty((nlvls, p.size))
     B[:, :] = np.nan
     
     # Loop through each vertical level
     
     for i in range(ibot, itop+1):
-        
-        cape, cin, zlcl, zlfc, zel, b, ps, ts, qvs = gB.getcape(1, adiabat, p[i:], T[i:], qv[i:])
-        params['CAPE'][i] = cape
-        params['CIN'][i] = cin
-        params['zlcl'][i] = zlcl
-        params['zlfc'][i] = zlfc
-        params['zel'][i] = zel
-        B[i, :len(b)] = b
+        out = gB.getcape(1, adiabat, p[i:], T[i:], qv[i:])
+        for j, p in enumerate(params):
+            params[p][i] = out[j]
+        B[i, :len(out[5])] = out[5]
     
-    param_df = pd.DataFrame.from_dict(params)
+    param_df = pd.DataFrame.from_dict(param_dict)
     
-    return param_df, B, z
+    return param_df, B
 
 
 def param_vprof_MW_df(MW_df, zbot, ztop, adiabat=1):
