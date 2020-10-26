@@ -481,7 +481,7 @@ def effect_inflow(p, T, qv, min_cape=100, max_cin=250, adiabat=1):
 
 
 def param_vprof(p, T, qv, pbot, ptop, adiabat=1, ric=0, rjc=0, zc=1.5, bhrad=10.0, bvrad=1.5,
-                bptpert=0.0, maintain_rh=False, xloc=0.0, yloc=0.0):
+                bptpert=0.0, maintain_rh=False, xloc=0.0, yloc=0.0, z0=0):
     """
     Compute vertical profiles of sounding parameters (CAPE, CIN, LFC, LCL, EL) as well as vertical
     profiles of parcel buoyancy.
@@ -505,28 +505,32 @@ def param_vprof(p, T, qv, pbot, ptop, adiabat=1, ric=0, rjc=0, zc=1.5, bhrad=10.
         bptpert = Warm buble perturbation (set to 0 to plot parameters without warm bubble) (K)
         maintain_rh = Keep constant RH in initiating warm bubble
         xloc, yloc = Horizontal location of vertical profile (km)
+        z0 = Height of p[0] (only needed if bptpert > 0) (m)
     """
    
-    th = theta(T, p)
-    pi = exner(p)
-
     # Add initiating warm bubble
 
-    beta = np.sqrt(((xloc - ric) / bhrad) ** 2.0 +
-                   ((yloc - rjc) / bhrad) ** 2.0 +
-                   (((z / 1000) - zc) / bvrad) ** 2.0)
+    if not np.isclose(bptpert, 0):
 
-    thpert = np.zeros(th.shape)
-    inds = np.where(beta < 1.0)[0]
-    thpert[inds] = bptpert * (np.cos(0.5 * np.pi * beta[inds]) ** 2.0)
+        th = theta(T, p)
+        pi = exner(p)
+        z = sounding_height(p, th, qv, 0)
 
-    if maintain_rh:
-        rh = qv / get_qvl(th * pi, p)
-        qv = rh * get_qvl((th + thpert) * pi, p)
+        beta = np.sqrt(((xloc - ric) / bhrad) ** 2.0 +
+                       ((yloc - rjc) / bhrad) ** 2.0 +
+                       (((z / 1000) - zc) / bvrad) ** 2.0)
 
-    th = th * thpert
-    T = th * pi
-    
+        thpert = np.zeros(th.shape)
+        inds = np.where(beta < 1.0)[0]
+        thpert[inds] = bptpert * (np.cos(0.5 * np.pi * beta[inds]) ** 2.0)
+
+        if maintain_rh:
+            rh = qv / get_qvl(th * pi, p)
+            qv = rh * get_qvl((th + thpert) * pi, p)
+
+        th = th * thpert
+        T = th * pi   
+ 
     # Determine indices for pbot and ptop
 
     ibot = np.argmin(np.abs(p - pbot))
