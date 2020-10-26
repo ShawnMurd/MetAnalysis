@@ -87,6 +87,24 @@ def test_sounding_pressure():
     np.testing.assert_allclose(p_isf, p, atol=0.02)
 
 
+def test_sounding_height():
+
+    # Read in CM1 Weisman-Klemp sounding
+
+    wk_df = pd.read_csv('../sample_data/cm1_weisman_klemp_snd.csv')    
+
+    z = wk_df['z (m)'].values
+    th = wk_df['theta (K)'].values
+    qv = wk_df['qv (kg/kg)'].values
+    p = wk_df['prs (Pa)'].values
+
+    # Compute pressures
+
+    z_isf = isf.sounding_height(p, th, qv, z[0])
+
+    np.testing.assert_allclose(z_isf, z, atol=0.02)
+
+
 def test_calcsound_out_to_df():
     df = isf.calcsound_out_to_df('../sample_data/oun1999050318.out')
     DCAPE = np.array([0.0, 35.6, 49.3, 60.1, 66.1])
@@ -113,6 +131,23 @@ def test_effect_inflow():
     assert p_top2 == pytest.approx(68147.65, 0.1)
     assert p_bot1 == pytest.approx(99437.76, 0.1)
     assert p_bot2 == pytest.approx(95014.45, 0.1)
+
+
+def test_param_vprof():
+    
+    # Read in CM1 Weisman-Klemp sounding
+
+    wk_df = pd.read_csv('../sample_data/cm1_weisman_klemp_snd.csv')
+
+    T = wk_df['theta (K)'].values * wk_df['pi'].values
+    qv = wk_df['qv (kg/kg)'].values
+    p = wk_df['prs (Pa)'].values
+
+    # Compute vertical profile of sounding parameters
+
+    #param, B = isf.param_vprof(p, T, qv, 100000.0, 70000.0)
+
+    return None
 
 
 """

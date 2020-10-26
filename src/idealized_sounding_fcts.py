@@ -284,6 +284,41 @@ def sounding_pressure(z, th, qv, p0):
     return p
 
 
+def sounding_height(p, th, qv, z0):
+    """
+    Computes the height profile for the given pressure, temperature, and water vapor mixing ratio
+    profile using an upward integration of the hydrostatic balance equation.
+    Inputs:
+        p = Sounding pressures (Pa)
+        th = Sounding potential temperatures (K)
+        qv = Sounding water vapor mass mixing ratios (kg / kg)
+        z0 = Height corresponding to p[0] (m)
+    Outputs:
+        z = Sounding heights (m)
+    """
+
+    # Define constants
+
+    reps = 461.5 / 287.04
+    rd = 287.04
+    cp = 1005.7
+    g = 9.81
+    cpdg = cp / g
+
+    # Compute Exner function and virtual potential temperature
+
+    pi = exner(p)
+    thv = th * (1.0 + (reps * qv)) / (1.0 + qv)
+
+    # Integrate hydrostatic equation upward from surface
+
+    z = np.zeros(p.shape)
+    z[0] = z0
+    for i in range(1, p.size):
+        z[i] = z[i-1] - cpdg * 0.5 * (thv[i] + thv[i-1]) * (pi[i] - pi[i-1])
+
+    return z
+
 def cm1_snd_helper(cm1_sounding):
     """
     Extracts the temperature, water vapor mass mixing ratio, pressure, height, and wind profiles 
@@ -445,7 +480,7 @@ def effect_inflow(p, T, qv, min_cape=100, max_cin=250, adiabat=1):
     return p_top, p_bot
 
 
-def param_vprof(p, T, qv, zbot, ztop, adiabat=1, ric=0, rjc=0, zc=1.5, bhrad=10.0, bvrad=1.5,
+def param_vprof(p, T, qv, pbot, ptop, adiabat=1, ric=0, rjc=0, zc=1.5, bhrad=10.0, bvrad=1.5,
                 bptpert=0.0, maintain_rh=False, xloc=0.0, yloc=0.0):
     """
     Compute vertical profiles of sounding parameters (CAPE, CIN, LFC, LCL, EL) as well as vertical
@@ -487,7 +522,7 @@ def param_vprof(p, T, qv, zbot, ztop, adiabat=1, ric=0, rjc=0, zc=1.5, bhrad=10.
 
     if maintain_rh:
         rh = qv / get_qvl(th * pi, p)
-        qv = rh * get_qvl(th + thpert) * pi, p)
+        qv = rh * get_qvl((th + thpert) * pi, p)
 
     th = th * thpert
     T = th * pi
