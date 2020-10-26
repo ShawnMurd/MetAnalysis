@@ -448,7 +448,8 @@ def effect_inflow(p, T, qv, min_cape=100, max_cin=250, adiabat=1):
 def param_vprof(p, T, qv, zbot, ztop, adiabat=1, ric=0, rjc=0, zc=1.5, bhrad=10.0, bvrad=1.5,
                 bptpert=0.0, maintain_rh=False, xloc=0.0, yloc=0.0):
     """
-    Compute vertical profiles of sounding parameters for a CM1 input sounding.
+    Compute vertical profiles of sounding parameters (CAPE, CIN, LFC, LCL, EL) as well as vertical
+    profiles of parcel buoyancy.
     Inputs:
         p = Pressure (Pa)
         T = Temperature (K)
