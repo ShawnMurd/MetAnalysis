@@ -567,68 +567,6 @@ def param_vprof(p, T, qv, pbot, ptop, adiabat=1, ric=0, rjc=0, zc=1.5, bhrad=10.
     return param_df, B
 
 
-def param_vprof_MW_df(MW_df, zbot, ztop, adiabat=1):
-    """
-    Compute vertical profiles of sounding parameters for an output DataFrame from the 
-    mccaul_weisman() function
-    Inputs:
-        MW_df = Output DataFrame from the mccaul_weisman() function
-        zbot = Bottom of layer to compute sounding parameters (m)
-        ztop = Top of layer to compute sounding parameters (m)
-    Outputs:
-        param_df = Sounding parameters dictionary
-        B = 2D array of parcel buoyancies (m / s^2)
-        z = Heights (m)
-    Keywords:
-        adiabat = Adiabat option for getcape
-            1: Pseudoadiabatic, liquid only
-            2: Reversible, liquid only
-            3: Pseudoadiabatic, with ice
-            4: Reversible, with ice
-    """
-
-    # Extract T, p, and qv (in correct units)
-
-    p = MW_df['prs'].values / 100.0
-    T = MW_df['T'].values - 273.15
-    qv = MW_df['qv'].values
-    z = MW_df['z'].values
-
-    # Initialize output dictionary
-
-    ibot = np.argmin(np.abs(z - zbot))
-    itop = np.argmin(np.abs(z - ztop))
-
-    nlvls = len(z[ibot:itop+1])
-    params = {}
-
-    params['z'] = z[ibot:itop+1]
-    params['CAPE'] = np.zeros(nlvls)
-    params['CIN'] = np.zeros(nlvls)
-    params['zlcl'] = np.zeros(nlvls)
-    params['zlfc'] = np.zeros(nlvls)
-    params['zel'] = np.zeros(nlvls)
-
-    B = np.empty((nlvls, z.size))
-    B[:, :] = np.nan
-
-    # Loop through each vertical level
-
-    for i in range(ibot, itop+1):
-
-        cape, cin, zlcl, zlfc, zel, b, ps, ts, qvs = gB.getcape(1, adiabat, p[i:], T[i:], qv[i:])
-        params['CAPE'][i] = cape
-        params['CIN'][i] = cin
-        params['zlcl'][i] = zlcl
-        params['zlfc'][i] = zlfc
-        params['zel'][i] = zel
-        B[i, :len(b)] = b
-
-    param_df = pd.DataFrame.from_dict(params)
-
-    return param_df, B, z
-
-
 #---------------------------------------------------------------------------------------------------
 # Add Weisman-Klemp Sounding Here
 #---------------------------------------------------------------------------------------------------
