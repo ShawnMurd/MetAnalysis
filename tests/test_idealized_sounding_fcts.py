@@ -145,9 +145,15 @@ def test_param_vprof():
 
     # Compute vertical profile of sounding parameters
 
-    #param, B = isf.param_vprof(p, T, qv, 100000.0, 70000.0)
+    param, B = isf.param_vprof(p, T, qv, 100000.0, 70000.0)
 
-    return None
+    # Compute sounding parameters using getcape
+
+    param_truth = gc.getcape(1, 1, p[4:] * 0.01, T[4:] - 273.15, qv[4:])
+
+    param_name = ['CAPE', 'CIN', 'zlcl', 'zlfc', 'zel']
+    for i, key in enumerate(param_name):
+        assert param[key][4] == pytest.approx(param_truth[i], 0.01)
 
 
 """

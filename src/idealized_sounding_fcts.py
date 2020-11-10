@@ -546,10 +546,10 @@ def param_vprof(p, T, qv, pbot, ptop, adiabat=1, ric=0, rjc=0, zc=1.5, bhrad=10.
     nlvls = len(p[ibot:itop+1])
 
     param_dict = {}
-    params['p'] = p[ibot:itop+1]
+    param_dict['p'] = p[ibot:itop+1]
     params = ['CAPE', 'CIN', 'zlcl', 'zlfc', 'zel']    
-    for p in params:
-        params[p] = np.zeros(nlvls)
+    for s in params:
+        param_dict[s] = np.zeros(nlvls)
     
     B = np.empty((nlvls, p.size))
     B[:, :] = np.nan
@@ -558,8 +558,8 @@ def param_vprof(p, T, qv, pbot, ptop, adiabat=1, ric=0, rjc=0, zc=1.5, bhrad=10.
     
     for i in range(ibot, itop+1):
         out = gB.getcape(1, adiabat, p[i:], T[i:], qv[i:])
-        for j, p in enumerate(params):
-            params[p][i] = out[j]
+        for j, s in enumerate(params):
+            param_dict[s][i] = out[j]
         B[i, :len(out[5])] = out[5]
     
     param_df = pd.DataFrame.from_dict(param_dict)
