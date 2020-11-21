@@ -79,12 +79,13 @@ def circ(u, v, x1d, y1d, r, nazimuths=72):
                         (1 - a) * b * v[:, sy+1, sx] +
                         a * b * v[:, sy, sx])
                 
-                # Compute V (dot) dl
+                # Compute Vt (dot) dl, where Vt is the wind component tangential to the circuit
+                # Note: -sin(angle) = cos(pi/2 + angle) and cos(angle) = sin(pi/2 + angle)
                 
                 sumVt = sumVt + (utmp * np.cos(0.5 * np.pi + angle) + 
                                  vtmp * np.sin(0.5 * np.pi + angle))
                 
-            # Compute circulation
+            # Compute circulation (1e3 is needed to convert r from km to m)
             
             dl_mag = 2. * np.pi * r * 1.0e3 / nazimuths
             circ[:, j, i] = sumVt * dl_mag

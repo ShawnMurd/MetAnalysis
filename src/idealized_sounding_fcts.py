@@ -168,6 +168,22 @@ def getTfromTv(Tv, qv):
     return T
 
 
+def getqv(RH, T, p):
+    """
+    Compute water vapor mass mixing ratio from relative humidity
+    Reference:
+        Markowski and Richardson (2010) eqn 2.14
+    Inputs:
+        RH = Relative humidity (decimal)
+        T = Temperature (K)
+        p = Pressure (Pa)
+    Outputs:
+        qv = Water vapor mass mixing ratio (kg / kg)
+    """
+
+    return RH * get_qvl(T, p)
+
+
 def buoy(T_p, p_p, qv_p, T_env, p_env, qv_env):
     """
     Compute buoyancy
@@ -571,7 +587,53 @@ def param_vprof(p, T, qv, pbot, ptop, adiabat=1, ric=0, rjc=0, zc=1.5, bhrad=10.
 # Add Weisman-Klemp Sounding Here
 #---------------------------------------------------------------------------------------------------
 
-def weisman_klemp():
+def weisman_klemp(z, qv0=0.014, theta0=300.0, p0=100000.0, z_tr=12000.0, theta_tr=343.0, T_tr=213.0, 
+                  cm1_out=None):
+    """
+    Create an analytic thermodynamic profile following the methodology of Weisman and Klemp 
+    (1982, MWR) [hereafter WK82]. Implementation follows base.F from George Bryan's cm1r20.1.
+    Inputs:
+        z = Vertical levels used to compute thermodynamic profile (m)
+    Outputs:
+        snd_df = DataFrame with:
+            temperature (K)
+            water vapor mass mixing ratio (kg / kg)
+            pressure (Pa)
+            height (m)
+            u wind component (m / s)
+            v wind component (m / s)
+    Keywords:
+        qv0 = Surface water vapor mass mixing ratio (kg / kg)
+        theta0 = Surface potential temperature (K)
+        p0 = Surface pressure (Pa)
+        z_tr = Tropopause height (m)
+        theta_tr = Tropopause potential temperature (K)
+        T_tr = Tropopause temperature (K)
+        cm1_out = CM1 output text file to save sounding to (set to None to not create an output 
+            file)
+    """
+
+    # Define constants
+    
+    g = 9.81
+    cp = 1005.7
+
+    # Compute theta profile (eqn 1 from WK82)
+
+    theta = theta0 + (theta_tr - theta0) * ((z / z_tr) ** 1.25)
+    theta[z > z_tr] = theta_tr * np.exp(g * (z[z > z_tr] - z_tr) / (cp * T_tr))
+
+    # Compute relative humidity profile (eqn 2 from WK82)
+
+    RH = 1.0 - 0.75 * ((z / z_tr) ** 1.25)
+    RH[z > z_tr] = 0.25
+
+    # Integrate hydrostatic equation to get qv and p profile
+
+    qv = np.zeros(RH.size)
+    p = sounding_pressure(z, theta, qv, p0)
+    
+
     return None
 
 #---------------------------------------------------------------------------------------------------
