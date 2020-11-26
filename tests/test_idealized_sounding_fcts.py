@@ -156,6 +156,32 @@ def test_param_vprof():
         assert param[key][4] == pytest.approx(param_truth[i], 0.01)
 
 
+#---------------------------------------------------------------------------------------------------
+# Weisman-Klemp Analytic Sounding Test
+#---------------------------------------------------------------------------------------------------
+
+def test_weisman_klemp():
+
+    # Read in CM1 Weisman-Klemp sounding
+
+    cm1_df = pd.read_csv('../sample_data/cm1_weisman_klemp_snd.csv')
+
+    T = cm1_df['theta (K)'].values * cm1_df['pi'].values
+    qv = cm1_df['qv (kg/kg)'].values
+    p = cm1_df['prs (Pa)'].values
+
+    # Compute Weisman-Klemp sounding using MetAnalysis
+
+    isf_df = isf.weisman_klemp(cm1_df['z (m)'].values, 
+                               cm1_out='../sample_data/weisman_klemp_cm1_in')
+
+    # Compare T, qv, and p profiles
+
+    np.testing.assert_allclose(isf_df['T'][1:].values, T, atol=0.05)
+    np.testing.assert_allclose(isf_df['qv'][1:].values, qv, atol=0.00005)
+    np.testing.assert_allclose(isf_df['p'][1:].values, p, atol=2.5)
+
+
 """
 End test_idealized_sounding_fcts.py
 """ 

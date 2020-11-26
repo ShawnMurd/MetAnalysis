@@ -584,7 +584,7 @@ def param_vprof(p, T, qv, pbot, ptop, adiabat=1, ric=0, rjc=0, zc=1.5, bhrad=10.
 
 
 #---------------------------------------------------------------------------------------------------
-# Add Weisman-Klemp Sounding Here
+# Add Weisman-Klemp Analytic Thermodynamic Sounding
 #---------------------------------------------------------------------------------------------------
 
 def weisman_klemp(z, qv0=0.014, theta0=300.0, p0=100000.0, z_tr=12000.0, theta_tr=343.0, T_tr=213.0, 
@@ -600,8 +600,6 @@ def weisman_klemp(z, qv0=0.014, theta0=300.0, p0=100000.0, z_tr=12000.0, theta_t
             water vapor mass mixing ratio (kg / kg)
             pressure (Pa)
             height (m)
-            u wind component (m / s)
-            v wind component (m / s)
     Keywords:
         qv0 = Surface water vapor mass mixing ratio (kg / kg)
         theta0 = Surface potential temperature (K)
@@ -618,6 +616,11 @@ def weisman_klemp(z, qv0=0.014, theta0=300.0, p0=100000.0, z_tr=12000.0, theta_t
     g = 9.81
     cp = 1005.7
 
+    # Set z[0] equal to 0 if not already
+
+    if not np.isclose(z[0], 0):
+        z = np.concatenate((np.array([0.0]), z))
+
     # Compute theta profile (eqn 1 from WK82)
 
     theta = theta0 + (theta_tr - theta0) * ((z / z_tr) ** 1.25)
@@ -628,13 +631,40 @@ def weisman_klemp(z, qv0=0.014, theta0=300.0, p0=100000.0, z_tr=12000.0, theta_t
     RH = 1.0 - 0.75 * ((z / z_tr) ** 1.25)
     RH[z > z_tr] = 0.25
 
-    # Integrate hydrostatic equation to get qv and p profile
+    # Obtain p and qv iteratively by integrating the hydrostatic balance equation and adjusting
+    # qv accordingly
 
     qv = np.zeros(RH.size)
     p = sounding_pressure(z, theta, qv, p0)
-    
 
-    return None
+    max_p_dif = 100
+    i = 0
+    while max_p_dif > 0.01:
+        qv = RH * get_qvl(getTfromTheta(theta, p), p)
+        qv[np.where(qv > qv0)] = qv0
+        p_new = sounding_pressure(z, theta, qv, p0)
+        max_p_dif = np.amax(np.abs(p - p_new))
+        p = p_new
+        i = i + 1
+        if i > 20:
+            print('max number of iterations reached')
+            break
+
+    # Create output DataFrame
+
+    snd_df = pd.DataFrame({'T':getTfromTheta(theta, p), 'qv':qv, 'p':p, 'z':z})
+
+    # Create CM1 sounding input text file, if desired
+
+    if cm1_out != None:
+        fptr = open(cm1_out, 'w')
+        fptr.write('%7.2f    %6.2f    %6.3f\n' % (p0 * 0.01, theta0, qv0 * 1e3))
+        for i in range(1, z.size):
+            fptr.write('%7.1f    %6.2f    %6.4f    0.00    0.00\n' % (z[i], theta[i], qv[i] * 1e3))
+        fptr.close()  
+
+    return snd_df
+
 
 #---------------------------------------------------------------------------------------------------
 # Functions for McCaul-Weisman Analytic Sounding
