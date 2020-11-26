@@ -640,7 +640,7 @@ def weisman_klemp(z, qv0=0.014, theta0=300.0, p0=100000.0, z_tr=12000.0, theta_t
     max_p_dif = 100
     i = 0
     while max_p_dif > 0.01:
-        qv = RH * get_qvl(getTfromTheta(theta, p), p)
+        qv = getqv(RH, getTfromTheta(theta, p), p)
         qv[np.where(qv > qv0)] = qv0
         p_new = sounding_pressure(z, theta, qv, p0)
         max_p_dif = np.amax(np.abs(p - p_new))

@@ -60,6 +60,11 @@ def test_getTfromTv():
     assert T == pytest.approx(273.0, 0.001)
 
 
+def test_getqv():
+    qv = isf.getqv(0.75, 285.0, 80000.0)
+    assert qv == pytest.approx(0.00823486627799, 0.00005)
+
+
 def test_buoy():
     B = isf.buoy(300.0, 90000.0, 0.0075, 295.0, 89500.0, 0.005)
     assert B == pytest.approx(0.1653106, 0.0001)
