@@ -25,10 +25,13 @@ def test_largestArea():
                   [7, 0, 0, -4, 1]])
 
     size, iind, jind = la.largestArea(X >= 3)
+    
+    print(iind)
+    print(jind)
 
     assert size == 7
-    assert iind == [0, 0, 0, 1, 1, 2, 2]
-    assert jind == [1, 2, 3, 3, 2, 3, 4]
+    assert (iind == [0, 0, 0, 1, 1, 2, 2]).all()
+    assert (jind == [1, 2, 3, 3, 2, 3, 4]).all() or (jind == [1, 2, 3, 2, 3, 3, 4]).all() 
 
 
 def test_weighted_avg_ctr():
