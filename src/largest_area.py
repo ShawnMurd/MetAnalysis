@@ -66,6 +66,53 @@ def weighted_avg_ctr(A, wgts, thres):
     return np.average(A, weights=wgts)
 
 
+def supercell_cent(x2d, y2d, uh, uh_thres=50, coord=None, max_dist=10):
+    """
+    Determine the centroid of a supercell using center of the largest, contiguous area where 
+    uh >= uh_thres. It is assumed that uh is the 2-5 km updraft helicity, but other fields could
+    also be used.
+    
+    If coord is not None, then the supercell centroid is forced to be within max_dist of coord.
+    This means that the supercell centroid could actually be the second, third, etc. largest area
+    with uh >= uh_thres.
+    
+    Inputs:
+        x2d = Grid of x-coordinates (km)
+        y2d = Grid of y-coordinates (km)
+        uh = 2-5 km updraft helicity
+    Outputs:
+        xcent = X-coordinate of supercell centroid (km)
+        ycent = Y-coordinate of supercell centroid (km)
+    Keywords:
+        uh_thres = Supercell centroid is defined as the center of the largest area with 
+            uh >= uh_thres
+        coord = Previous supercell centroid coordinate
+        max_dist = Maximum distance from coord that the supercell centroid can be (km)
+    """
+    
+    xcent = np.nan
+    d2 = max_dist**2
+    
+    while np.isnan(xcent):
+        
+        # Find weighted center of largest area with uh >= uh_thres
+        
+        _, iind, jind = largestArea(uh >= uh_thres)
+        mask = np.zeros(uh.shape)
+        mask[iind, jind] = 1
+        wgts = mask * uh
+        xcent = np.average(x2d, weights=wgts)
+        ycent = np.average(y2d, weights=wgts)
+        
+        if coord == None:
+            break
+        elif ((xcent - coord[0])**2 + (ycent - coord[1])**2) > d2:
+            uh = (1 - mask) * uh
+            xcent = np.nan
+            
+    return xcent, ycent
+
+
 """
 End largest_area.py
 """ 
