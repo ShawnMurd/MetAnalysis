@@ -66,7 +66,7 @@ def weighted_avg_ctr(A, wgts, thres):
     return np.average(A, weights=wgts)
 
 
-def supercell_cent(x2d, y2d, uh, uh_thres=50, coord=None, max_dist=10):
+def supercell_cent(x2d, y2d, uh, uh_thres=50, coord=[np.nan, np.nan], max_dist=10):
     """
     Determine the centroid of a supercell using center of the largest, contiguous area where 
     uh >= uh_thres. It is assumed that uh is the 2-5 km updraft helicity, but other fields could
@@ -104,7 +104,7 @@ def supercell_cent(x2d, y2d, uh, uh_thres=50, coord=None, max_dist=10):
         xcent = np.average(x2d, weights=wgts)
         ycent = np.average(y2d, weights=wgts)
         
-        if coord == None:
+        if np.isnan(coord[0]):
             break
         elif ((xcent - coord[0])**2 + (ycent - coord[1])**2) > d2:
             uh = (1 - mask) * uh
