@@ -670,75 +670,8 @@ def weisman_klemp(z, qv0=0.014, theta0=300.0, p0=100000.0, z_tr=12000.0, theta_t
 # Functions for McCaul-Weisman Analytic Sounding
 #---------------------------------------------------------------------------------------------------
 
-def dewpt_from_thetae(thetae, p, T, thetae_tol=(0.005 * units.kelvin), max_iter=50):
-    """
-    Compute the dewpoint from the equivalent potential tempertaure, pressure, and temperature using
-    an iterative midpoint method.
-    Inputs:
-        thetae = Equivalent potential temperature (K)
-        p = Atmospheric pressure (Pa)
-        T = Temperature (K)
-    Outputs:
-        Td = Dewpoint (K)
-    Keywords:
-        thetae_tol = Maximum allowable difference between the input thetae and thetae computed
-            using Td (K)
-        max_iter = Maximum number of iterations
-    """
-    
-    # Choose initial dewpoint values
-    
-    Td_high = T
-    Td_low = 0.25 * T
-    
-    # Initial set up for midpoint method
-    
-    Td_mid = 0.5 * (Td_high + Td_low)
-    
-    thetae_high = mc.equivalent_potential_temperature(p, T, Td_high)
-    thetae_low = mc.equivalent_potential_temperature(p, T, Td_low)
-    thetae_mid = mc.equivalent_potential_temperature(p, T, Td_mid)
-    
-    # Check to see if given theta-e value can actually be reached
-    
-    if (thetae_high < thetae) or (thetae_low > thetae):
-        
-        raise ValueError('The specified theta-e value (%.2f) cannot be reached' % 
-                         thetae.magnitude)
-    
-    # Perform midpoint method
-    
-    i = 0
-    while np.abs(thetae_mid - thetae) > thetae_tol:
-        
-        if (thetae_high - thetae) * (thetae_mid - thetae) < (0 * units.kelvin * units.kelvin):
-        
-            Td_low = Td_mid
-            Td_mid = 0.5 * (Td_low + Td_high)
-        
-            thetae_low = thetae_mid
-            thetae_mid = mc.equivalent_potential_temperature(p, T, Td_mid)
-        
-        else:
-        
-            Td_high = Td_mid
-            Td_mid = 0.5 * (Td_low + Td_high)
-        
-            thetae_high = thetae_mid
-            thetae_mid = mc.equivalent_potential_temperature(p, T, Td_mid)
-        
-        i = i + 1
-    
-        if i > max_iter:
-        
-            warnings.warn('Max number of iterations (%s) has been reached.' % max_iter)
-            break
-            
-    return Td_mid
-
-
 def create_pbl(thetae, T_sfc, p_sfc, dz, lapse_rate=(0.0085 * units.kelvin / units.meter),
-               thetae_tol=(0.005 * units.kelvin), depth=None, lr=0.0001):
+               depth=None, lr=0.0001):
     """
     Construct the PBL of an atmospheric sounding using a constant theta-e value and hydrostatic
     balance. Above the LCL, a constant theta-e layer with a lapse rate slightly less than the moist
@@ -756,7 +689,6 @@ def create_pbl(thetae, T_sfc, p_sfc, dz, lapse_rate=(0.0085 * units.kelvin / uni
         z_lcl = LCL height AGL (m)
     Keywords:
         lapse_rate = PBL lapse rate (K / m)
-        thetae_tol = Thetae tolerance for dewpt_from_thetae (K)
         depth = Height of PBL (m). If None, PBL is terminated at LCL
         lr = Lapse rate in LFC-LCL layer is equal to the MALR - lr (K / m)
     """
