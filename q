@@ -1,0 +1,206 @@
+[33mcommit 10e8da7a8192669540bddb7540b9be8273251c7a[m[33m ([m[1;36mHEAD -> [m[1;32mno_f2py[m[33m)[m
+Author: Shawn Murdzek <sfm5282@psu.edu>
+Date:   Thu Jan 28 11:29:49 2021 -0500
+
+    actually remove .so objects
+
+[33mcommit 19ed6ffdd834837c906d0f41c41247d67b9b7c13[m[33m ([m[1;31morigin/no_f2py[m[33m)[m
+Author: Shawn Murdzek <sfm5282@psu.edu>
+Date:   Thu Jan 28 11:22:04 2021 -0500
+
+    remove .so objects
+
+[33mcommit 14bb5c6be2a08beb5104f2f1985ef046a867f529[m[33m ([m[1;31morigin/master[m[33m, [m[1;32mmaster[m[33m)[m
+Author: Shawn Murdzek <sfm5282@psu.edu>
+Date:   Fri Jan 22 15:01:51 2021 -0500
+
+    remove dewpt_from_thetae from idealized_sounding_functions
+
+[33mcommit edbccd0ccc928de9caaae55cbec81b135fb4c219[m
+Merge: 1220fbd 498b87c
+Author: Shawn Murdzek <sfm5282@psu.edu>
+Date:   Fri Jan 22 14:36:27 2021 -0500
+
+    Merge branch 'master' of https://github.com/ShawnMurd/MetAnalysis into master
+    
+    update local branch
+
+[33mcommit 1220fbd889ea296b4629cde967f31befea2c4411[m
+Author: Shawn Murdzek <sfm5282@psu.edu>
+Date:   Fri Jan 22 14:35:47 2021 -0500
+
+    remove unused create_pbl functions in idealized_sounding_fcts
+
+[33mcommit 498b87c08dd63db542157b69ffe27c5779383e64[m
+Author: Shawn Murdzek <sfm5282@psu.edu>
+Date:   Wed Jan 6 19:08:02 2021 -0500
+
+    Change default supercell_cent() coord value from None to NaN
+
+[33mcommit 1226b0445d29d6c6b944d7d55948383a80c72077[m
+Author: Shawn Murdzek <sfm5282@psu.edu>
+Date:   Wed Jan 6 18:29:44 2021 -0500
+
+    add largest_area.supercell_cent() function
+
+[33mcommit c50928e61ac75e8dbd0af2d2fb289cfe001b9dd3[m
+Author: Shawn Murdzek <sfm5282@psu.edu>
+Date:   Wed Jan 6 17:03:25 2021 -0500
+
+    update largest_area.largestArea() to use scipy.ndimage
+
+[33mcommit 1f092b9779134ed3eb5ce8be1497103b41cb73ba[m
+Author: Shawn Murdzek Lethe <sfm5282@psu.edu>
+Date:   Wed Nov 25 20:31:02 2020 -0500
+
+    add test for getqv
+
+[33mcommit ba29d2969a9db302e138884fb09018e72c1e3f38[m
+Author: Shawn Murdzek Lethe <sfm5282@psu.edu>
+Date:   Wed Nov 25 20:15:56 2020 -0500
+
+    finish isf.weisman_klemp() and add test
+
+[33mcommit 121495b8a280f1dd6809e9b9532c8ea04b18d213[m
+Author: Shawn Murdzek Lethe <sfm5282@psu.edu>
+Date:   Fri Nov 20 20:26:51 2020 -0500
+
+    update comments in kine_fcts.py
+
+[33mcommit 6b3600c399972426c1192fb1b110806880475f38[m
+Author: Shawn Murdzek Lethe <sfm5282@psu.edu>
+Date:   Mon Nov 9 19:19:46 2020 -0500
+
+    Remove idealized_sounding_fcts.param_vprof_MW_df
+
+[33mcommit ba4cdcdcc1e8dd27e96b374000229957fdb7eb62[m
+Author: Shawn Murdzek Lethe <sfm5282@psu.edu>
+Date:   Mon Nov 9 19:01:15 2020 -0500
+
+    write test for idealized_sounding_fcts.param_vprof
+
+[33mcommit ba72bf4dd4f7affc9515b7ba85f29a605f9cffe6[m
+Author: Shawn Murdzek Lethe <sfm5282@psu.edu>
+Date:   Mon Oct 26 19:51:32 2020 -0400
+
+    Update param_vprof
+
+[33mcommit 632f89726f63175a723c15e015fa26a23b25fbb0[m
+Author: Shawn Murdzek Lethe <sfm5282@psu.edu>
+Date:   Mon Oct 26 19:27:23 2020 -0400
+
+    add sounding_height function
+
+[33mcommit 643417c252ed1aea61621b0fbd7f2bcec2ba1afb[m
+Author: Shawn Murdzek Lethe <sfm5282@psu.edu>
+Date:   Mon Oct 26 19:01:28 2020 -0400
+
+    update param_vprof documentation
+
+[33mcommit 513abc54ec378e646c66a21c62a4dd4a7ce5d498[m
+Author: Shawn Murdzek Lethe <sfm5282@psu.edu>
+Date:   Sun Sep 27 20:02:06 2020 -0400
+
+    revise param_vprof
+
+[33mcommit e1c76f9f35796002f1528d1896be2e4b9132b683[m
+Author: Shawn Murdzek Lethe <sfm5282@psu.edu>
+Date:   Mon Sep 14 11:43:27 2020 -0400
+
+    Remove old imports
+
+[33mcommit 9a563e5f71b2c6ea3f75c415f755f5cdda8909c0[m
+Author: Shawn Murdzek <sfm5282@psu.edu>
+Date:   Mon Sep 14 09:59:47 2020 -0400
+
+    Delete .idealized_sounding_fcts.py.swp
+
+[33mcommit efbecb8f306179b00203d6f41220b5187d57c0fb[m
+Author: Shawn Murdzek <sfm5282@psu.edu>
+Date:   Mon Sep 14 09:46:40 2020 -0400
+
+    Delete cm1_winds_new.nc
+
+[33mcommit 92882a6fd591aa8db6df02269090fd7e69b47f80[m
+Author: Shawn Murdzek Lethe <sfm5282@psu.edu>
+Date:   Mon Sep 14 09:40:42 2020 -0400
+
+    Add functions related to Kerry Emanuel's calcsound program
+
+[33mcommit 42fc24087f289d1a84e58ce9303aab07fdf4e2b4[m
+Author: Shawn Murdzek Lethe <sfm5282@psu.edu>
+Date:   Mon Sep 14 08:35:45 2020 -0400
+
+    Add tests for get_es and get_qvl
+
+[33mcommit 26ec5ca4af3ea17694876bffb2dfa605ac16c616[m
+Author: Shawn Murdzek Lethe <sfm5282@psu.edu>
+Date:   Tue Sep 8 20:26:07 2020 -0400
+
+    Add get_es and get_qvl functions
+
+[33mcommit 40d2e2d20f1fb968b1a7b2e35ba786a5a2a90fdd[m
+Author: Shawn Murdzek Lethe <sfm5282@psu.edu>
+Date:   Tue Sep 8 20:06:47 2020 -0400
+
+    Add test for effect_inflow
+
+[33mcommit d5c8a00e724fbdbb773725d812c4b4e8bbbc2465[m
+Author: Shawn Murdzek Lethe <sfm5282@psu.edu>
+Date:   Mon Aug 31 20:22:10 2020 -0400
+
+    update idealized_sounding_functions.py
+
+[33mcommit 9de4d40ecb2a7e94a55daecef317ec0a47df7a0d[m
+Author: Shawn Murdzek Lethe <sfm5282@psu.edu>
+Date:   Tue Aug 25 19:44:39 2020 -0400
+
+    Add sounding_pressure test
+
+[33mcommit 9ab5dfd047fbb5df35f83ae2f18c7ecd2de529ba[m
+Author: Shawn Murdzek Lethe <sfm5282@psu.edu>
+Date:   Mon Aug 24 20:11:16 2020 -0400
+
+    Add more tests and sounding_pressure function
+
+[33mcommit 037dff40db9d7adeb5752b388e9038c0dd9994a8[m
+Author: Shawn Murdzek Lethe <sfm5282@psu.edu>
+Date:   Sun Aug 16 17:12:57 2020 -0400
+
+    Start creating thermodynamic tests
+
+[33mcommit e11c2effaf98cd43f04f05a0bbe51890619a5729[m
+Author: Murdzek Shawn S <sfm5282@lethe.met.psu.edu>
+Date:   Sun Aug 16 16:27:40 2020 -0400
+
+    Add idealized_sounding_fcts
+
+[33mcommit 404aceca935a9ca8ba4e5f35790aebc663abdca9[m
+Author: Shawn Murdzek <sfm5282@psu.edu>
+Date:   Thu Aug 13 13:06:30 2020 -0400
+
+    Remove unnecessary print statement
+
+[33mcommit d7a75bd861f69036134149f6c4d314f55c499a02[m
+Author: Shawn Murdzek <sfm5282@psu.edu>
+Date:   Wed Aug 12 19:28:26 2020 -0400
+
+    Add weighted_avg_ctr function
+
+[33mcommit 146f5a4de928f221a970edf08a7a060449faf891[m
+Author: Shawn Murdzek <sfm5282@psu.edu>
+Date:   Wed Aug 12 15:12:13 2020 -0400
+
+    Add largest_area.py
+
+[33mcommit 4b4fff0bb84a33b224fab26b6d1d7241a5f94d41[m
+Author: Shawn Murdzek <sfm5282@psu.edu>
+Date:   Tue Aug 11 17:22:00 2020 -0400
+
+    Create README.md
+
+[33mcommit a425afd13dfe8dbd9e68047e7ff287b271b01a39[m
+Author: Shawn Murdzek <sfm5282@psu.edu>
+Date:   Tue Aug 11 17:17:05 2020 -0400
+
+    upload initial project

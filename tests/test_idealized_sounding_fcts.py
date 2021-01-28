@@ -85,11 +85,10 @@ def test_sounding_pressure():
     p = wk_df['prs (Pa)'].values
 
     # Compute pressures
-
+    
     p_isf = isf.sounding_pressure(z, th, qv, p[0])
 
     np.testing.assert_allclose(p_isf, p, atol=0.02)
-
 
 def test_sounding_height():
 
@@ -103,7 +102,7 @@ def test_sounding_height():
     p = wk_df['prs (Pa)'].values
 
     # Compute pressures
-
+    
     z_isf = isf.sounding_height(p, th, qv, z[0])
 
     np.testing.assert_allclose(z_isf, z, atol=0.02)
@@ -115,7 +114,7 @@ def test_calcsound_out_to_df():
     assert len(df) == 76
     np.testing.assert_allclose(df['DCAPE'].values[:5], DCAPE, atol=0.05)
 
-
+'''
 def test_effect_inflow():
 
     # Read in CM1 Weisman-Klemp sounding
@@ -158,7 +157,7 @@ def test_param_vprof():
     param_name = ['CAPE', 'CIN', 'zlcl', 'zlfc', 'zel']
     for i, key in enumerate(param_name):
         assert param[key][4] == pytest.approx(param_truth[i], 0.01)
-
+'''
 
 #---------------------------------------------------------------------------------------------------
 # Weisman-Klemp Analytic Sounding Test
@@ -184,7 +183,7 @@ def test_weisman_klemp():
     np.testing.assert_allclose(isf_df['T'][1:].values, T, atol=0.05)
     np.testing.assert_allclose(isf_df['qv'][1:].values, qv, atol=0.00005)
     np.testing.assert_allclose(isf_df['p'][1:].values, p, atol=2.5)
-
+    
 
 """
 End test_idealized_sounding_fcts.py

@@ -7,3 +7,5 @@ To only run a specific test module contained in <filename>, use the command
 `pytest <filename>`
 
 To only run a specific test, use the command `pytest <filename>::<testname>`
+
+To show how much time each test takes, use the `--duration=0` option
