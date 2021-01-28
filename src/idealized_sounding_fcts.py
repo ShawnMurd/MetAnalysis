@@ -22,9 +22,6 @@ import pandas as pd
 import metpy.calc as mc
 from metpy.units import units
 
-import MetAnalysis.src.getcape as gc
-import MetAnalysis.src.getB as gB
-
 
 #---------------------------------------------------------------------------------------------------
 # Define Basic Thermodynamic Functions

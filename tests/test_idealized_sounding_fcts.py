@@ -12,7 +12,6 @@ sfm5282@psu.edu
 import numpy as np
 import pandas as pd
 import MetAnalysis.src.idealized_sounding_fcts as isf
-import MetAnalysis.src.getcape as gc
 import pytest
 
 
