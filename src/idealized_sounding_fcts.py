@@ -18,7 +18,6 @@ Environment: local_py (Python 3.6)
 
 import numpy as np
 import pandas as pd
-from numba import jit
 
 import metpy.calc as mc
 from metpy.units import units
@@ -28,7 +27,6 @@ from metpy.units import units
 # Define Basic Thermodynamic Functions
 #---------------------------------------------------------------------------------------------------
 
-@jit(nopython=True)
 def exner(p):
     """
     Compute the Exner function
@@ -262,7 +260,6 @@ def print_env_param(T, p, qv, print_results=True, adiabat=1):
 # Define Functions Related to Vertical Profiles of Sounding Parameters
 #---------------------------------------------------------------------------------------------------
 
-@jit(nopython=True)
 def sounding_pressure(z, th, qv, p0):
     """
     Computes the pressure profile for the given height, temperature, and water vapor mixing ratio
@@ -300,44 +297,6 @@ def sounding_pressure(z, th, qv, p0):
     return p
 
 
-def sounding_pressure_noJIT(z, th, qv, p0):
-    """
-    Computes the pressure profile for the given height, temperature, and water vapor mixing ratio
-    profile using an upward integration of the hydrostatic balance equation.
-    Inputs:
-        z = Sounding heights (m)
-        th = Sounding potential temperatures (K)
-        qv = Sounding water vapor mass mixing ratios (kg / kg)
-        p0 = Pressure corresponding to z[0] (Pa)
-    Outputs:
-        p = Sounding pressure (Pa)
-    """
-
-    # Define constants
-
-    reps = 461.5 / 287.04
-    rd = 287.04
-    cp = 1005.7
-    p00 = 100000.0
-    g = 9.81
-
-    # Compute Exner function and virtual potential temperature
-
-    pi = np.zeros(z.shape)
-    pi[0] = exner(p0)
-    thv = th * (1.0 + (reps * qv)) / (1.0 + qv)
-
-    # Integrate hydrostatic equation upward from surface
-
-    for i in range(1, z.size):
-        pi[i] = pi[i-1] - g * (z[i] - z[i-1]) / (cp * 0.5 * (thv[i] + thv[i-1]))
-
-    p = p00 * (pi ** (cp / rd))
-
-    return p
-
-
-@jit(nopython=True)
 def sounding_height(p, th, qv, z0):
     """
     Computes the height profile for the given pressure, temperature, and water vapor mixing ratio
@@ -680,85 +639,6 @@ def weisman_klemp(z, qv0=0.014, theta0=300.0, p0=100000.0, z_tr=12000.0, theta_t
         qv = getqv(RH, getTfromTheta(theta, p), p)
         qv[np.where(qv > qv0)] = qv0
         p_new = sounding_pressure(z, theta, qv, p0)
-        max_p_dif = np.amax(np.abs(p - p_new))
-        p = p_new
-        i = i + 1
-        if i > 20:
-            print('max number of iterations reached')
-            break
-
-    # Create output DataFrame
-
-    snd_df = pd.DataFrame({'T':getTfromTheta(theta, p), 'qv':qv, 'p':p, 'z':z})
-
-    # Create CM1 sounding input text file, if desired
-
-    if cm1_out != None:
-        fptr = open(cm1_out, 'w')
-        fptr.write('%7.2f    %6.2f    %6.3f\n' % (p0 * 0.01, theta0, qv0 * 1e3))
-        for i in range(1, z.size):
-            fptr.write('%7.1f    %6.2f    %6.4f    0.00    0.00\n' % (z[i], theta[i], qv[i] * 1e3))
-        fptr.close()  
-
-    return snd_df
-
-
-def weisman_klemp_noJIT(z, qv0=0.014, theta0=300.0, p0=100000.0, z_tr=12000.0, theta_tr=343.0, T_tr=213.0, 
-                  cm1_out=None):
-    """
-    Create an analytic thermodynamic profile following the methodology of Weisman and Klemp 
-    (1982, MWR) [hereafter WK82]. Implementation follows base.F from George Bryan's cm1r20.1.
-    Inputs:
-        z = Vertical levels used to compute thermodynamic profile (m)
-    Outputs:
-        snd_df = DataFrame with:
-            temperature (K)
-            water vapor mass mixing ratio (kg / kg)
-            pressure (Pa)
-            height (m)
-    Keywords:
-        qv0 = Surface water vapor mass mixing ratio (kg / kg)
-        theta0 = Surface potential temperature (K)
-        p0 = Surface pressure (Pa)
-        z_tr = Tropopause height (m)
-        theta_tr = Tropopause potential temperature (K)
-        T_tr = Tropopause temperature (K)
-        cm1_out = CM1 output text file to save sounding to (set to None to not create an output 
-            file)
-    """
-
-    # Define constants
-    
-    g = 9.81
-    cp = 1005.7
-
-    # Set z[0] equal to 0 if not already
-
-    if not np.isclose(z[0], 0):
-        z = np.concatenate((np.array([0.0]), z))
-
-    # Compute theta profile (eqn 1 from WK82)
-
-    theta = theta0 + (theta_tr - theta0) * ((z / z_tr) ** 1.25)
-    theta[z > z_tr] = theta_tr * np.exp(g * (z[z > z_tr] - z_tr) / (cp * T_tr))
-
-    # Compute relative humidity profile (eqn 2 from WK82)
-
-    RH = 1.0 - 0.75 * ((z / z_tr) ** 1.25)
-    RH[z > z_tr] = 0.25
-
-    # Obtain p and qv iteratively by integrating the hydrostatic balance equation and adjusting
-    # qv accordingly
-
-    qv = np.zeros(RH.size)
-    p = sounding_pressure_noJIT(z, theta, qv, p0)
-
-    max_p_dif = 100
-    i = 0
-    while max_p_dif > 0.01:
-        qv = getqv(RH, getTfromTheta(theta, p), p)
-        qv[np.where(qv > qv0)] = qv0
-        p_new = sounding_pressure_noJIT(z, theta, qv, p0)
         max_p_dif = np.amax(np.abs(p - p_new))
         p = p_new
         i = i + 1
