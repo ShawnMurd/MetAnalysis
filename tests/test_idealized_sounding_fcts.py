@@ -67,7 +67,7 @@ def test_getqv():
 def test_buoy():
     B = isf.buoy(300.0, 90000.0, 0.0075, 295.0, 89500.0, 0.005)
     assert B == pytest.approx(0.1653106, 0.0001)
-
+    
 
 #---------------------------------------------------------------------------------------------------
 # Test Functions Related to Vertical Profiles of Sounding Parameters

@@ -101,14 +101,10 @@ def getcape(p, T, qv, source='sfc', adiabat=1, ml=500.0, pinc=10.0):
 
     # Determine initial parcel properties
 
-!----------------------------------------------------------------
-
-!---- find source parcel ----!
-
-      IF(source.eq.1)THEN
+    if source == 1:
         kmax = 1
 
-      ELSEIF(source.eq.2)THEN
+    elif source == 2:
 
         IF(p(1).lt.50000.0)THEN
           kmax = 1

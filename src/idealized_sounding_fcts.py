@@ -181,6 +181,40 @@ def getqv(RH, T, p):
     return RH * get_qvl(T, p)
 
 
+def getTd(T, p, qv):
+    """
+    Compute dewpoint by inverting the Clausius-Clapeyron equation
+
+    Parameters
+    ----------
+    T : array
+        Temperature profile (K)
+    p : array
+        Pressure profile (Pa)
+    qv : array
+        Water vapor mass mixing ratio profile (kg / kg)
+
+    Returns
+    -------
+    Td : array
+        Dewpoint profile (K)
+    
+    Notes
+    -----
+    See Markowski and Richardson (2010) eqn (2.16)
+
+    """
+    
+    Rv = 461.5
+    Rd = 287.04
+    eps = Rd / Rv
+    
+    ln_e = np.log(((q / eps) * p) / (1 + (q / eps)))
+    Td = 273.15 + (1562.1558 - 243.4 * ln_e) / (ln_e - 24.08542)
+    
+    return Td
+
+
 def buoy(T_p, p_p, qv_p, T_env, p_env, qv_env):
     """
     Compute buoyancy
@@ -205,6 +239,43 @@ def buoy(T_p, p_p, qv_p, T_env, p_env, qv_env):
     B = g * (thetav_p - thetav_env) / thetav_env
     
     return B
+
+
+def getthe(T, p, Td, qv):
+    """
+    Compute pseudoequivalent potential temperature following the approximation of Bolton (1980, MWR)
+
+    Parameters
+    ----------
+    T : array
+        Temperature profile (K)
+    p : array
+        Pressure profile (Pa)
+    Td : array
+        Dewpoint profile (K)
+    qv : array
+        Water vapor mass mixing ratio profile (kg / kg)
+
+    Returns
+    -------
+    the : array
+        Pseudoequivalent potential temperature (K)
+
+    """
+    
+    # Compute LCL temperature
+    
+    if (Td - T) >= -0.1:
+        Tlcl = T
+    else:
+        Tlcl = 56. + 1. / (1. / (Td - 56.0) + 0.00125 * np.log(T / Td))
+        
+    # Compute theta-ep
+    
+    the = (T * (100000. / p) ** (0.2854 * (1. - 0.28 * q)) * 
+           np.exp(((3376. / Tlcl) - 2.54) * q * (1. + 0.81 * q)))
+           
+    return the
 
 
 #---------------------------------------------------------------------------------------------------
