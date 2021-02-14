@@ -18,7 +18,7 @@ import idealized_sounding_fcts as isf
 # Functions
 #---------------------------------------------------------------------------------------------------
 
-def getcape(p, T, qv, source='sfc', adiabat=1, ml=500.0, pinc=10.0):
+def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0):
     """
     Compute various sounding parameters.
 
@@ -41,7 +41,7 @@ def getcape(p, T, qv, source='sfc', adiabat=1, ml=500.0, pinc=10.0):
             2 = Reversible, liquid only
             3 = Pseudoadiabatic, with ice
             4 = Reversible, with ice
-    ml : float, optional
+    ml_depth : float, optional
         Mixed-layer depth for source = 'ml' (m)
     pinc : float, optional
         Pressure increment for integration of hydrostatic equation (Pa)
@@ -61,7 +61,8 @@ def getcape(p, T, qv, source='sfc', adiabat=1, ml=500.0, pinc=10.0):
     
     Notes
     -----
-    Credit to George Bryan (NCAR) for writing the original getcape.F subroutine.
+    Credit to George Bryan (NCAR) for writing the original getcape.F subroutine [which is 
+    distributed as part of Cloud Model 1 (CM1)]
     
     """
 
@@ -91,6 +92,7 @@ def getcape(p, T, qv, source='sfc', adiabat=1, ml=500.0, pinc=10.0):
     cpdg  = cp/g
 
     converge = 0.0002
+    nlvl = p.shape[0]
 
     # Compute derived quantities
     
@@ -99,191 +101,152 @@ def getcape(p, T, qv, source='sfc', adiabat=1, ml=500.0, pinc=10.0):
     thv = isf.thetav(T, p, qv)
     z = isf.sounding_height(p, th, qv, 0.0)
 
-    # Determine initial parcel properties
+    # Determine initial parcel location
 
-    if source == 1:
-        kmax = 1
+    if source == 'sfc':
+        kmax = 0
 
-    elif source == 2:
+    elif source == 'mu':
+        thetae = getthe(T, p, qv)
+        kmax = np.argmax(thetae)
+        maxthe = np.amax(thetae)
 
-        IF(p(1).lt.50000.0)THEN
-          kmax = 1
-          maxthe = getthx(p(1),t(1),td(1),q(1))
-        ELSE
-          maxthe = 0.0
-          do k=1,nk
-            if(p(k).ge.50000.0)then
-              the = getthx(p(k),t(k),td(k),q(k))
-              if( the.gt.maxthe )then
-                maxthe = the
-                kmax = k
-              endif
-            endif
-          enddo
-        ENDIF
+    elif source == 'ml':
+        
+        if z[1] > ml_depth:
+            avgth = th[0]
+            avgqv = qv[0]
+            kmax = 0
+        elif z[-1] < ml_depth:
+            avgth = th[-1]
+            avgqv = qv[-1]
+            kmax = th.size -1
+        else:
+            
+            # Compute the average theta and qv weighted by the distance between two sounding levels
+            
+            ktop = np.where(z <= ml_depth)[0][-1]
+            ml_th = 0.5 * (th[:ktop] + th[1:(ktop+1)])
+            ml_qv = 0.5 * (qv[:ktop] + qv[1:(ktop+1)])
+            depths = z[1:(ktop+1)] - z[:ktop]
+            
+            avgth = np.average(ml_th, weights=depths)
+            avgqv = np.average(ml_qv, weights=depths)
+            kmax = 0
 
-      ELSEIF(source.eq.3)THEN
+    else:
+        print()
+        print('Unknown value for source (source = %s), using surface-based parcel instead' % source)
+        print()
+        kmax = 0
+        
+    # Define initial parcel properties
 
-        IF( (z(2)-z(1)).gt.ml_depth )THEN
+    th2  = th[kmax]
+    pi2  = pi[kmax]
+    p2   = p[kmax]
+    T2   = T[kmax]
+    thv2 = thv[kmax]
+    qv2  = qv[kmax]
+    B2   = 0.0
 
-          avgth = th(1)
-          avgqv = q(1)
-          kmax = 1
-
-        ELSEIF( z(nk).lt.ml_depth )THEN
-          ! the top-most level is within the mixed layer:  just use the
-          ! upper-most level
-
-          avgth = th(nk)
-          avgqv = q(nk)
-          kmax = nk
-
-        ELSE
-          ! calculate the mixed-layer properties:
-
-          avgth = 0.0
-          avgqv = 0.0
-          k = 2
-
-          do while( (z(k).le.ml_depth) .and. (k.le.nk) )
-
-            avgth = avgth + 0.5*(z(k)-z(k-1))*(th(k)+th(k-1))
-            avgqv = avgqv + 0.5*(z(k)-z(k-1))*(q(k)+q(k-1))
-
-            k = k + 1
-
-          enddo
-
-          th2 = th(k-1)+(th(k)-th(k-1))*(ml_depth-z(k-1))/(z(k)-z(k-1))
-          qv2 =  q(k-1)+( q(k)- q(k-1))*(ml_depth-z(k-1))/(z(k)-z(k-1))
-
-          avgth = avgth + 0.5*(ml_depth-z(k-1))*(th2+th(k-1))
-          avgqv = avgqv + 0.5*(ml_depth-z(k-1))*(qv2+q(k-1))
-
-          avgth = avgth/ml_depth
-          avgqv = avgqv/ml_depth
-
-          kmax = 1
-
-        ENDIF
-
-      ELSE
-
-        print *
-        print *,'  Unknown value for source'
-        print *
-        print *,'  source = ',source
-        print *
-        stop
-
-      ENDIF
-
-!---- define parcel properties at initial location ----!
-      narea = 0.0
-
-      if( (source.eq.1).or.(source.eq.2) )then
-        k    = kmax
-        th2  = th(kmax)
-        pi2  = pi(kmax)
-        p2   = p(kmax)
-        t2   = t(kmax)
-        thv2 = thv(kmax)
-        qv2  = q(kmax)
-        b2   = 0.0
-      elseif( source.eq.3 )then
-        k    = kmax
+    if source == 'ml':
         th2  = avgth
         qv2  = avgqv
-        thv2 = th2*(1.0+reps*qv2)/(1.0+qv2)
-        pi2  = pi(kmax)
-        p2   = p(kmax)
-        t2   = th2*pi2
-        b2   = g*( thv2-thv(kmax) )/thv(kmax)
-      endif
+        T2   = isf.getTfromTheta(th2, p2)
+        thv2 = isf.thetav(T2, p2, qv2)
+        B2   = isf.buoy(T2, p2, qv2, T[kmax], p[kmax], qv[kmax])
 
-      psource = p2
-      tsource = t2
-      qvsource = qv2
+    # Initialize arrays for parcel quantities
 
-      ql2 = 0.0
-      qi2 = 0.0
-      qt  = qv2
+    pT  = np.zeros(nlvl)
+    pTd = np.zeros(nlvl)
+    pTv = np.zeros(nlvl)
+    pB  = np.zeros(nlvl)
+    pc  = np.zeros(nlvl)
+    pn  = np.zeros(nlvl)
+    pqv = np.zeros(nlvl)
+    pql = np.zeros(nlvl)
+    
+    pT[kmax]  = T2
+    pTd[kmax] = isf.getTd(T2, p2, qv2)
+    pTv[kmax] = isf.getTv(T2, qv2)
+    pqv[kmax] = qv2
+        
+    # Initialize variables for parcel ascent
 
-      cape = 0.0
-      cin  = 0.0
-      lfc  = 0.0
+    narea = 0.0
 
-      doit = .true.
-      cloud = .false.
-      if(adiabat.eq.1.or.adiabat.eq.2)then
-        ice = .false.
-      else
-        ice = .true.
-      endif
+    psource  = p2
+    Tsource  = T2
+    qvsource = qv2
 
-      the = getthx(p2,t2,t2,qv2)
-      pt(k) = t2
-      if( cloud )then
-        ptd(k) = t2
-      else
-        ptd(k) = gettd(p2,t2,qv2)
-      endif
-      ptv(k) = t2*(1.0+reps*qv2)/(1.0+qv2)
-      pb(k) = 0.0
-      pqv(k) = qv2
-      pql(k) = 0.0
+    ql2 = 0.0
+    qi2 = 0.0
+    qt  = qv2
 
-      zlcl = -1.0
-      zlfc = -1.0
-      zel  = -1.0
+    cape = 0.0
+    cin  = 0.0
+    lfc  = 0.0
 
-!---- begin ascent of parcel ----!
+    cloud = False
+    if (adiabat == 1 or adiabat == 2):
+        ice = False
+    else:
+        ice = True
 
-      do while( doit .and. (k.lt.nk) )
+    the = isf.getthe(T2, p2, qv2)
 
-        k = k+1
-        b1 =  b2
+    zlcl = -1.0
+    zlfc = -1.0
+    zel  = -1.0
 
-        dp = p(k-1)-p(k)
+    # Parcel ascent: Loop over each vertical level in sounding
 
-        if( dp.lt.pinc )then
-          nloop = 1
-        else
-          nloop = 1 + int( dp/pinc )
-          dp = dp/float(nloop)
-        endif
+    for k in range(kmax, nlvl):
 
-        do n=1,nloop
+        B1 =  B2
+        dp = p[k-1] - p[k]
 
-          p1 =  p2
-          t1 =  t2
-          pi1 = pi2
-          th1 = th2
-          qv1 = qv2
-          ql1 = ql2
-          qi1 = qi2
-          thv1 = thv2
+        # Substep dp in increments equal to pinc
 
-          p2 = p2 - dp
-          pi2 = (p2*rp00)**rddcp
+        nloop = 1 + int( dp/pinc )
+        dp = dp / float(nloop)
 
-          thlast = th1
-          i = 0
-          not_converged = .true.
+        for n in range(nloop):
 
-          do while( not_converged )
-            i = i + 1
-            t2 = thlast*pi2
-            if(ice)then
-              fliq = max(min((t2-233.15)/(273.15-233.15),1.0),0.0)
-              fice = 1.0-fliq
-            else
-              fliq = 1.0
-              fice = 0.0
-            endif
-            qv2 = min( qt , fliq*getqvl(p2,t2) + fice*getqvi(p2,t2) )
-            qi2 = max( fice*(qt-qv2) , 0.0 )
-            ql2 = max( qt-qv2-qi2 , 0.0 )
+            p1   =  p2
+            T1   =  t2
+            pi1  = pi2
+            th1  = th2
+            qv1  = qv2
+            ql1  = ql2
+            qi1  = qi2
+            thv1 = thv2
+
+            p2 = p2 - dp
+            pi2 = (p2*rp00)**rddcp
+
+            thlast = th1
+            i = 0
+            not_converged = True
+
+            while not_converged:
+                i = i + 1
+                T2 = thlast * pi2
+                if ice:
+                    fliq = max(min((T2 - 233.15) / (273.15 - 233.15), 1.0), 0.0)
+                    fice = 1.0 - fliq
+                else:
+                    fliq = 1.0
+                    fice = 0.0
+            qv2 = min(qt, fliq * isf.get_qvl(T2, p2) + fice * isf.get_qvi(T2, p2))
+            qi2 = max(fice * (qt - qv2), 0.0)
+            ql2 = max(qt - qv2 - qi2, 0.0)
+
+"""
+End here on 2/14/2021
+"""
 
             tbar  = 0.5*(t1+t2)
             qvbar = 0.5*(qv1+qv2)
@@ -407,157 +370,12 @@ def getcape(p, T, qv, source='sfc', adiabat=1, ml=500.0, pinc=10.0):
         cape = cape + max(0.0,parea)
         pc(k) = cape
 
-        if( (p(k).le.10000.0).and.(b2.lt.0.0) )then
-          ! stop if b < 0 and p < 100 mb
-          doit = .false.
-        endif
+        if (p[k] <= 10000. and b2 <= 0.):
+            break
 
-      enddo
-
-!!!    print *,'  zlcl,zlfc,zel = ',zlcl,zlfc,zel
-!!!    print *,'  plcl,plfc,pel = ',plcl,plfc,pel
-
-!---- All done ----!
-
-      end subroutine getcape
-
-!-----------------------------------------------------------------------
-!ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-!-----------------------------------------------------------------------
-
-      function getqvl(p,t)
-      implicit none
-
-      real :: p,t
-      real :: getqvl
-
-      real :: es
-      real, parameter :: eps = 287.04/461.5
-
-      es = 611.2*exp(17.67*(t-273.15)/(t-29.65))
-    ! 171023 (fix for very cold temps):
-      es = min( es , p*0.5 )
-      getqvl = eps*es/(p-es)
-
-      end function getqvl
-
-!-----------------------------------------------------------------------
-!ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-!-----------------------------------------------------------------------
-
-      function getqvi(p,t)
-      implicit none
-
-      real :: p,t
-      real :: getqvi
-
-      real :: es
-      real, parameter :: eps = 287.04/461.5
-
-      es = 611.2*exp(21.8745584*(t-273.15)/(t-7.66))
-    ! 171023 (fix for very cold temps):
-      es = min( es , p*0.5 )
-      getqvi = eps*es/(p-es)
-
-      end function getqvi
-
-!-----------------------------------------------------------------------
-!ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-!-----------------------------------------------------------------------
-
-      function getthx(p,t,td,q)
-      implicit none
-
-      real :: p,t,td,q
-      real :: getthx
-      real :: tlcl
-
-      if( (td-t).ge.-0.1 )then
-        tlcl = t
-      else
-        tlcl = 56.0 + ( (td-56.0)**(-1) + 0.00125*alog(t/td) )**(-1)
-      endif
-
-      getthx=t*( (100000.0/p)**(0.2854*(1.0-0.28*q)) )   
-     $        *exp( ((3376.0/tlcl)-2.54)*q*(1.0+0.81*q) )
-
-      end function getthx
-
-!-----------------------------------------------------------------------
-!ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-!-----------------------------------------------------------------------
-
-      function gettd(p,t,q)
-      implicit none
-
-      real :: p,t,q
-      real :: gettd
-
-      real :: el
-      real, parameter :: eps = 287.04/461.5
-
-      el = alog((q/eps)*p/100.0/(1.0+(q/eps)))
-      gettd = 273.15+(243.5*el-440.8)/(19.48-el)
-
-      end function gettd
-
-!-----------------------------------------------------------------------
-!ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-!-----------------------------------------------------------------------
-
-      function getq(p,t,the)
-      implicit none
-
-      real :: p,t,the
-      real :: getq
-
-! p (Pa), t (K), the (K), getq (kg/kg)
-
-      real :: qhigh,qlow,qmid
-      real :: tdhigh,tdlow,tdmid
-      real :: thehigh,thelow,themid
-      real :: getqvl,gettd,getthx
-      integer :: i
-
-      qhigh = getqvl(p,t)
-      qlow = 0.0001
-      qmid = 0.5*(qhigh+qlow)
-
-      tdhigh = gettd(p,t,qhigh)
-      tdlow = gettd(p,t,qlow)
-      tdmid = gettd(p,t,qmid)
-
-      thehigh = getthx(p,t,tdhigh,qhigh)
-      thelow = getthx(p,t,tdlow,qlow)
-      themid = getthx(p,t,tdmid,qmid)
-
-      i = 0
-      do while (abs(themid-the).gt.0.01)
-        
-        if ((thehigh-the)*(themid-the).lt.0) then
-          qlow = qmid
-          tdlow = tdmid
-          thelow = themid
-        else
-          qhigh = qmid
-          tdhigh = tdmid
-          thehigh = themid
-        endif
-
-        qmid = 0.5*(qhigh+qlow)
-        tdmid = gettd(p,t,qmid)
-        themid = getthx(p,t,tdmid,qmid)
-
-        i = i+1
-        if (i.gt.100) then
-          print *, 'max number of iterations (100) reached'
-          stop
-        endif
-
-      enddo
-
-      getq = qmid
-
-      end function getq
+    return cape, cin, zlcl, zlfc, zel
 
 
+"""
+End getcape.py
+"""

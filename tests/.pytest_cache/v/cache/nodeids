@@ -19,5 +19,7 @@
   "test_idealized_sounding_fcts.py::test_sounding_pressure_noJIT",
   "test_idealized_sounding_fcts.py::test_weisman_klemp_noJIT",
   "test_idealized_sounding_fcts.py::test_getTd",
-  "test_idealized_sounding_fcts.py::test_getthe"
+  "test_idealized_sounding_fcts.py::test_getthe",
+  "test_idealized_sounding_fcts.py::test_get_es",
+  "test_idealized_sounding_fcts.py::test_get_qvs"
 ]
