@@ -64,10 +64,20 @@ def test_getqv():
     assert qv == pytest.approx(0.00823486627799, 0.00005)
 
 
+def test_getTd():
+    Td = isf.getTd(285.0, 90000.0, 0.005)
+    assert Td == pytest.approx(275.384, 0.05)
+
+
 def test_buoy():
     B = isf.buoy(300.0, 90000.0, 0.0075, 295.0, 89500.0, 0.005)
     assert B == pytest.approx(0.1653106, 0.0001)
     
+
+def test_getthe():
+    thetae = isf.getthe(285.0, 90000.0, 0.005)
+    assert thetae == pytest.approx(308.515, 0.005)
+   
 
 #---------------------------------------------------------------------------------------------------
 # Test Functions Related to Vertical Profiles of Sounding Parameters
