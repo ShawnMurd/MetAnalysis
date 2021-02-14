@@ -75,40 +75,45 @@ def getTfromTheta(theta, p):
     return theta * exner(p)
 
 
-def get_es(T):
+def get_es(T, sfc='l'):
     """
-    Compute equilibrium vapor pressure (over liquid water).
+    Compute equilibrium vapor pressure (over liquid water or ice).
     Reference:
         Markowski and Richardson (2010) eqn 2.16
     Inputs:
         T = Temperature (K)
     Outputs:
-        e_s = equilibrium vapor pressure over liquid water (Pa)
+        e_s = Equilibrium vapor pressure over liquid water (Pa)
+    Keywords:
+        sfc = Surface over which to compute es (liquid = 'l', ice = 'i')
     """
   
     T = T - 273.15
-    e_s = 611.2 * np.exp(17.67 * T / (T + 243.5))
+    if sfc == 'l':
+        e_s = 611.2 * np.exp(17.67 * T / (T + 243.5))
+    elif sfc == 'i':
+        e_s = 611.2 * np.exp(21.8745584 * T / (T + 265.49))
 
     return e_s
 
 
-def get_qvl(T, p):
+def get_qvs(T, p, sfc='l'):
     """
-    Compute equilibrium water vapor mass mixing ratio (over liquid water).
+    Compute equilibrium water vapor mass mixing ratio (over liquid water or ice).
     Inputs:
         T = Temperature (K)
         p = Pressure (Pa)
     Outputs:
-        qvl = Equilibrium water vapor mass mixing ratio (kg / kg)
+        qvs = Equilibrium water vapor mass mixing ratio (kg / kg)
     """
 
     Rv = 461.5
     Rd = 287.04
     eps = Rd / Rv
-    es = get_es(T)
-    qvl = eps * es / (p - es)
+    es = get_es(T, sfc=sfc)
+    qvs = eps * es / (p - es)
 
-    return qvl
+    return qvs
 
 
 def getTv(T, qv):
@@ -178,7 +183,7 @@ def getqv(RH, T, p):
         qv = Water vapor mass mixing ratio (kg / kg)
     """
 
-    return RH * get_qvl(T, p)
+    return RH * get_qvs(T, p)
 
 
 def getTd(T, p, qv):
@@ -607,8 +612,8 @@ def param_vprof(p, T, qv, pbot, ptop, adiabat=1, ric=0, rjc=0, zc=1.5, bhrad=10.
         thpert[inds] = bptpert * (np.cos(0.5 * np.pi * beta[inds]) ** 2.0)
 
         if maintain_rh:
-            rh = qv / get_qvl(th * pi, p)
-            qv = rh * get_qvl((th + thpert) * pi, p)
+            rh = qv / get_qvs(th * pi, p)
+            qv = rh * get_qvs((th + thpert) * pi, p)
 
         th = th * thpert
         T = th * pi   

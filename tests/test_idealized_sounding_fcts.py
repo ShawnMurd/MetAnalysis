@@ -34,15 +34,19 @@ def test_getTfromTheta():
     assert T == pytest.approx(273.0, 0.001)
 
 
-def get_es():
-    es = isf.get_es(285.0)
-    assert es == pytest.approx(1387.743087, 0.01)
+def test_get_es():
+    esl = isf.get_es(265.0, sfc='l')
+    esi = isf.get_es(265.0, sfc='i')
+    assert esl == pytest.approx(331.4659001, abs=0.01)
+    assert esi == pytest.approx(305.7150278, abs=0.01)
 
 
-def get_qvl():
-    qvl = isf.get_qvl(285.0, 90000.0)
-    assert qvl == pytest.approx(0.009749736, 0.00001)
-
+def test_get_qvs():
+    qvl = isf.get_qvs(285.0, 90000.0, sfc='l')
+    qvi = isf.get_qvs(265.0, 90000.0, sfc='i')
+    assert qvl == pytest.approx(0.009749736, abs=0.00002)
+    assert qvi == pytest.approx(0.00211993744596, abs=0.00002)
+    
 
 def test_getTv():
     Tv = isf.getTv(273.0, 0.005)
@@ -66,7 +70,7 @@ def test_getqv():
 
 def test_getTd():
     Td = isf.getTd(285.0, 90000.0, 0.005)
-    assert Td == pytest.approx(275.384, 0.05)
+    assert Td == pytest.approx(275.384, abs=0.05)
 
 
 def test_buoy():
@@ -76,7 +80,7 @@ def test_buoy():
 
 def test_getthe():
     thetae = isf.getthe(285.0, 90000.0, 0.005)
-    assert thetae == pytest.approx(308.515, 0.005)
+    assert thetae == pytest.approx(308.515, abs=0.005)
    
 
 #---------------------------------------------------------------------------------------------------
