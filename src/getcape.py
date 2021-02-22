@@ -85,10 +85,8 @@ def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0):
     ls2   = cpi-cpv
 
     rp00  = 1.0/p00
-    eps   = rd/rv
     reps  = rv/rd
     rddcp = rd/cp
-    cpdrd = cp/rd
     cpdg  = cp/g
 
     converge = 0.0002
@@ -107,9 +105,8 @@ def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0):
         kmax = 0
 
     elif source == 'mu':
-        thetae = getthe(T, p, qv)
+        thetae = isf.getthe(T, p, qv)
         kmax = np.argmax(thetae)
-        maxthe = np.amax(thetae)
 
     elif source == 'ml':
         
@@ -164,7 +161,6 @@ def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0):
     pTv = np.zeros(nlvl)
     pB  = np.zeros(nlvl)
     pc  = np.zeros(nlvl)
-    pn  = np.zeros(nlvl)
     pqv = np.zeros(nlvl)
     pql = np.zeros(nlvl)
     
@@ -177,25 +173,18 @@ def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0):
 
     narea = 0.0
 
-    psource  = p2
-    Tsource  = T2
-    qvsource = qv2
-
     ql2 = 0.0
     qi2 = 0.0
     qt  = qv2
 
     cape = 0.0
     cin  = 0.0
-    lfc  = 0.0
 
     cloud = False
     if (adiabat == 1 or adiabat == 2):
         ice = False
     else:
         ice = True
-
-    the = isf.getthe(T2, p2, qv2)
 
     zlcl = -1.0
     zlfc = -1.0
@@ -216,13 +205,11 @@ def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0):
         for n in range(nloop):
 
             p1   =  p2
-            T1   =  t2
-            pi1  = pi2
+            T1   =  T2
             th1  = th2
             qv1  = qv2
             ql1  = ql2
             qi1  = qi2
-            thv1 = thv2
 
             p2 = p2 - dp
             pi2 = (p2*rp00)**rddcp
@@ -234,143 +221,107 @@ def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0):
             while not_converged:
                 i = i + 1
                 T2 = thlast * pi2
+                
                 if ice:
                     fliq = max(min((T2 - 233.15) / (273.15 - 233.15), 1.0), 0.0)
                     fice = 1.0 - fliq
                 else:
                     fliq = 1.0
                     fice = 0.0
-            qv2 = min(qt, fliq * isf.get_qvl(T2, p2) + fice * isf.get_qvi(T2, p2))
-            qi2 = max(fice * (qt - qv2), 0.0)
-            ql2 = max(qt - qv2 - qi2, 0.0)
+                    
+                qv2 = min(qt, fliq * isf.get_qvl(T2, p2) + fice * isf.get_qvi(T2, p2))
+                qi2 = max(fice * (qt - qv2), 0.0)
+                ql2 = max(qt - qv2 - qi2, 0.0)
 
-"""
-End here on 2/14/2021
-"""
+                Tbar  = 0.5*(T1 + T2)
+                qvbar = 0.5*(qv1 + qv2)
+                qlbar = 0.5*(ql1 + ql2)
+                qibar = 0.5*(qi1 + qi2)
 
-            tbar  = 0.5*(t1+t2)
-            qvbar = 0.5*(qv1+qv2)
-            qlbar = 0.5*(ql1+ql2)
-            qibar = 0.5*(qi1+qi2)
+                lhv = lv1 - lv2*Tbar
+                lhs = ls1 - ls2*Tbar
 
-            lhv = lv1-lv2*tbar
-            lhs = ls1-ls2*tbar
-            lhf = lhs-lhv
+                rm  = rd + rv*qvbar
+                cpm = cp + cpv*qvbar + cpl*qlbar + cpi*qibar
+                th2 = th1 * np.exp(lhv*(ql2 - ql1) / (cpm*Tbar)  
+                                   + lhs*(qi2 - qi1) / (cpm*Tbar) 
+                                   + (rm/cpm - rd/cp) * np.log(p2/p1))
 
-            rm=rd+rv*qvbar
-            cpm=cp+cpv*qvbar+cpl*qlbar+cpi*qibar
-            th2=th1*exp(lhv*(ql2-ql1)/(cpm*tbar)  
-     $                  +lhs*(qi2-qi1)/(cpm*tbar) 
-     $                  +(rm/cpm-rd/cp)*alog(p2/p1))
+                if i > 90: 
+                    print('%d, %.2f, %.2f, %.2f' % (i, th2, thlast, th2 - thlast))
+                if i > 100:
+                    raise RuntimeError('Max number of iterations (100) reached')
+                             
+                if abs(th2 - thlast) > converge:
+                    thlast = thlast + 0.3*(th2 - thlast)
+                else:
+                    not_converged = False
+            
+            # Latest pressure increment is complete.  Calculate some important stuff:
 
-            if(i.gt.90) print *,i,th2,thlast,th2-thlast
-            if(i.gt.100)then
-              print *
-              print *,'  Error:  lack of convergence'
-              print *
-              print *,'  ... stopping iteration '
-              print *
-!!!            stop 1001
-            ! 171020:
-              cape = 0.0
-              cin = 0.0
-              psource = 0.0
-              tsource = 0.0
-              qvsource = 0.0
-              return
-            endif
-            if( abs(th2-thlast).gt.converge )then
-              thlast=thlast+0.3*(th2-thlast)
-            else
-              not_converged = .false.
-            endif
-          enddo
+            if ql2 >= 1.0e-10: 
+                cloud = True
+            if (cloud and zlcl < 0.0):
+                zlcl = z[k-1] + (z[k]-z[k-1]) * float(n) / float(nloop)
 
-        ! Latest pressure increment is complete.  Calculate some
-        ! important stuff:
+            if (adiabat == 1 or adiabat == 3):
+                # pseudoadiabat
+                qt  = qv2
+                ql2 = 0.0
+                qi2 = 0.0
+            elif (adiabat <= 0 or adiabat >= 5):
+                raise RuntimeError('Undefined adiabat (%d)' % adiabat)
 
-          if( ql2.ge.1.0e-10 ) cloud = .true.
-          if( cloud .and. zlcl.lt.0.0 )then
-            zlcl = z(k-1)+(z(k)-z(k-1))*float(n)/float(nloop)
-            plcl = p(k-1)+(p(k)-p(k-1))*float(n)/float(nloop)
-          endif
+        thv2 = th2 * (1. + reps*qv2) / (1. + qv2 + ql2 + qi2)
+        B2 = g * (thv2 - thv[k]) / thv[k]
+        dz = -cpdg * 0.5 * (thv[k] + thv[k-1]) * (pi[k] - pi[k-1])
 
-          IF(adiabat.eq.1.or.adiabat.eq.3)THEN
-            ! pseudoadiabat
-            qt  = qv2
-            ql2 = 0.0
-            qi2 = 0.0
-          ELSEIF(adiabat.le.0.or.adiabat.ge.5)THEN
-            print *
-            print *,'  Undefined adiabat'
-            print *
-            stop 10000
-          ENDIF
+        if (zlcl > 0.0 and zlfc < 0.0 and B2 > 0.0):
+            if B1 > 0.0:
+                zlfc = zlcl
+            else:
+                zlfc = z[k-1] + (z[k] - z[k-1]) * (0.0 - B1) / (B2 - B1)
 
-        enddo
+        if (zlfc > 0.0 and zel < 0.0 and B2 < 0.0):
+            zel = z[k-1] + (z[k] - z[k-1]) * (0.0 - B1) / (B2-B1)
 
-        thv2 = th2*(1.0+reps*qv2)/(1.0+qv2+ql2+qi2)
-        b2 = g*( thv2-thv(k) )/thv(k)
-        dz = -cpdg*0.5*(thv(k)+thv(k-1))*(pi(k)-pi(k-1))
+        pT[k] = T2
+        if cloud:
+            pTd[k] = T2
+        else:
+            pTd[k] = isf.getTd(T2, p2, qv2)
+        pTv[k] = T2 * (1. + reps*qv2) / (1. + qv2)
+        pB[k]  = B2
+        pqv[k] = qv2
+        pql[k] = ql2
 
-        if( zlcl.gt.0.0 .and. zlfc.lt.0.0 .and. b2.gt.0.0 )then
-          if( b1.gt.0.0 )then
-            zlfc = zlcl
-            plfc = plcl
-          else
-            zlfc = z(k-1)+(z(k)-z(k-1))*(0.0-b1)/(b2-b1)
-            plfc = p(k-1)+(p(k)-p(k-1))*(0.0-b1)/(b2-b1)
-          endif
-        endif
+        # Get contributions to CAPE and CIN:
 
-        if( zlfc.gt.0.0 .and. zel.lt.0.0 .and. b2.lt.0.0 )then
-          zel = z(k-1)+(z(k)-z(k-1))*(0.0-b1)/(b2-b1)
-          pel = p(k-1)+(p(k)-p(k-1))*(0.0-b1)/(b2-b1)
-        endif
+        if (B2 >= 0.0 and B1 < 0.0):
+            # first trip into positive area
+            frac = B2 / (B2 - B1)
+            parea =  0.5*B2*dz*frac
+            narea = narea - 0.5*B1*dz*(1.-frac)
+            cin  = cin  + narea
+            narea = 0.0
+        elif (B2 < 0.0 and B1 > 0.0):
+            # first trip into neg area
+            frac = B1 / (B1 - B2)
+            parea =  0.5*B1*dz*frac
+            narea = -0.5*B2*dz*(1.0-frac)
+        elif B2 < 0.0:
+            # still collecting negative buoyancy
+            parea =  0.0
+            narea = narea - 0.5*dz*(B1+B2)
+        else:
+            # still collecting positive buoyancy
+            parea =  0.5*dz*(B1+B2)
+            narea =  0.0
 
-        the = getthx(p2,t2,t2,qv2)
+        cape = cape + max(0.0, parea)
+        pc[k] = cape
 
-        pt(k) = t2
-        if( cloud )then
-          ptd(k) = t2
-        else
-          ptd(k) = gettd(p2,t2,qv2)
-        endif
-        ptv(k) = t2*(1.0+reps*qv2)/(1.0+qv2)
-        pb(k) = b2
-        pqv(k) = qv2
-        pql(k) = ql2
-
-      ! Get contributions to CAPE and CIN:
-
-        if( (b2.ge.0.0) .and. (b1.lt.0.0) )then
-          ! first trip into positive area
-          ps = p(k-1)+(p(k)-p(k-1))*(0.0-b1)/(b2-b1)
-          frac = b2/(b2-b1)
-          parea =  0.5*b2*dz*frac
-          narea = narea-0.5*b1*dz*(1.0-frac)
-          cin  = cin  + narea
-          narea = 0.0
-        elseif( (b2.lt.0.0) .and. (b1.gt.0.0) )then
-          ! first trip into neg area
-          ps = p(k-1)+(p(k)-p(k-1))*(0.0-b1)/(b2-b1)
-          frac = b1/(b1-b2)
-          parea =  0.5*b1*dz*frac
-          narea = -0.5*b2*dz*(1.0-frac)
-        elseif( b2.lt.0.0 )then
-          ! still collecting negative buoyancy
-          parea =  0.0
-          narea = narea-0.5*dz*(b1+b2)
-        else
-          ! still collecting positive buoyancy
-          parea =  0.5*dz*(b1+b2)
-          narea =  0.0
-        endif
-
-        cape = cape + max(0.0,parea)
-        pc(k) = cape
-
-        if (p[k] <= 10000. and b2 <= 0.):
+        if (p[k] <= 10000. and B2 <= 0.):
             break
 
     return cape, cin, zlcl, zlfc, zel
