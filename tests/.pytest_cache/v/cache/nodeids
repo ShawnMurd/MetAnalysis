@@ -21,5 +21,7 @@
   "test_idealized_sounding_fcts.py::test_getTd",
   "test_idealized_sounding_fcts.py::test_getthe",
   "test_idealized_sounding_fcts.py::test_get_es",
-  "test_idealized_sounding_fcts.py::test_get_qvs"
+  "test_idealized_sounding_fcts.py::test_get_qvs",
+  "test_getcape.py::test_getcape_pseudo",
+  "test_getcape.py::test_getcape"
 ]

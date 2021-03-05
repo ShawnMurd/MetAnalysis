@@ -1,6 +1,12 @@
 """
 getcape.F, but it's in Python!
 
+This code works, but it's ~100x slower than the fortran version
+
+Timing tests using the WK82 sample sounding from CM1:
+    This code    ~ 0.6 s   (on fujita)
+    Fortran code ~ 0.006 s (on Roar interactive node)
+
 Shawn Murdzek
 sfm5282@psu.edu
 Date Created: 3 February 2021
@@ -11,7 +17,7 @@ Date Created: 3 February 2021
 #---------------------------------------------------------------------------------------------------
 
 import numpy as np
-import idealized_sounding_fcts as isf
+import MetAnalysis.src.idealized_sounding_fcts as isf
 
 
 #---------------------------------------------------------------------------------------------------
@@ -105,7 +111,8 @@ def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0):
         kmax = 0
 
     elif source == 'mu':
-        thetae = isf.getthe(T, p, qv)
+        idxmax = (p >= 50000.0).sum()
+        thetae = isf.getthe(T[:idxmax], p[:idxmax], qv[:idxmax])
         kmax = np.argmax(thetae)
 
     elif source == 'ml':
@@ -153,21 +160,6 @@ def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0):
         T2   = isf.getTfromTheta(th2, p2)
         thv2 = isf.thetav(T2, p2, qv2)
         B2   = isf.buoy(T2, p2, qv2, T[kmax], p[kmax], qv[kmax])
-
-    # Initialize arrays for parcel quantities
-
-    pT  = np.zeros(nlvl)
-    pTd = np.zeros(nlvl)
-    pTv = np.zeros(nlvl)
-    pB  = np.zeros(nlvl)
-    pc  = np.zeros(nlvl)
-    pqv = np.zeros(nlvl)
-    pql = np.zeros(nlvl)
-    
-    pT[kmax]  = T2
-    pTd[kmax] = isf.getTd(T2, p2, qv2)
-    pTv[kmax] = isf.getTv(T2, qv2)
-    pqv[kmax] = qv2
         
     # Initialize variables for parcel ascent
 
@@ -192,14 +184,14 @@ def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0):
 
     # Parcel ascent: Loop over each vertical level in sounding
 
-    for k in range(kmax, nlvl):
+    for k in range(kmax+1, nlvl):
 
         B1 =  B2
         dp = p[k-1] - p[k]
 
         # Substep dp in increments equal to pinc
 
-        nloop = 1 + int( dp/pinc )
+        nloop = 1 + int(dp/pinc)
         dp = dp / float(nloop)
 
         for n in range(nloop):
@@ -229,7 +221,7 @@ def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0):
                     fliq = 1.0
                     fice = 0.0
                     
-                qv2 = min(qt, fliq * isf.get_qvl(T2, p2) + fice * isf.get_qvi(T2, p2))
+                qv2 = min(qt, fliq * isf.get_qvs(T2, p2) + fice * isf.get_qvs(T2, p2, sfc='i'))
                 qi2 = max(fice * (qt - qv2), 0.0)
                 ql2 = max(qt - qv2 - qi2, 0.0)
 
@@ -285,16 +277,6 @@ def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0):
         if (zlfc > 0.0 and zel < 0.0 and B2 < 0.0):
             zel = z[k-1] + (z[k] - z[k-1]) * (0.0 - B1) / (B2-B1)
 
-        pT[k] = T2
-        if cloud:
-            pTd[k] = T2
-        else:
-            pTd[k] = isf.getTd(T2, p2, qv2)
-        pTv[k] = T2 * (1. + reps*qv2) / (1. + qv2)
-        pB[k]  = B2
-        pqv[k] = qv2
-        pql[k] = ql2
-
         # Get contributions to CAPE and CIN:
 
         if (B2 >= 0.0 and B1 < 0.0):
@@ -319,12 +301,29 @@ def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0):
             narea =  0.0
 
         cape = cape + max(0.0, parea)
-        pc[k] = cape
 
         if (p[k] <= 10000. and B2 <= 0.):
             break
 
     return cape, cin, zlcl, zlfc, zel
+
+# Perform tests
+
+import pandas as pd
+import datetime as dt
+
+wk_df = pd.read_csv('../sample_data/cm1_weisman_klemp_snd.csv')    
+
+T = wk_df['theta (K)'].values * wk_df['pi'].values
+qv = wk_df['qv (kg/kg)'].values
+p = wk_df['prs (Pa)'].values
+
+print('Calling getcape...')
+print(dt.datetime.now())
+start = dt.datetime.now()
+gc_out = getcape(p, T, qv, source='sfc', adiabat=1)
+print('total time =', dt.datetime.now() - start)
+print(gc_out)
 
 
 """

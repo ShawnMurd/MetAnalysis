@@ -105,6 +105,8 @@ def get_qvs(T, p, sfc='l'):
         p = Pressure (Pa)
     Outputs:
         qvs = Equilibrium water vapor mass mixing ratio (kg / kg)
+    Keywords:
+        sfc = Surface over which to compute es (liquid = 'l', ice = 'i')
     """
 
     Rv = 461.5
@@ -269,10 +271,14 @@ def getthe(T, p, qv):
     # Compute LCL temperature
     
     Td = getTd(T, p, qv)
-    if (Td - T) >= -0.1:
-        Tlcl = T
+    
+    Tlcl = 56. + 1. / (1. / (Td - 56.0) + 0.00125 * np.log(T / Td))
+    if type(T) == float:
+        if (Td - T) >= -0.1:
+            Tlcl = T
     else:
-        Tlcl = 56. + 1. / (1. / (Td - 56.0) + 0.00125 * np.log(T / Td))
+        if (Td - T >= -0.1).sum() > 0:
+            Tlcl[np.where((Td - T) >= -0.1)] = T
         
     # Compute theta-ep
     
