@@ -858,18 +858,18 @@ def effect_inflow(p, T, qv, min_cape=100, max_cin=250, adiabat=1):
     # Determine bottom of effective inflow layer
     
     i = 0
-    cape, cin, _, _, _, _, _, _ = getcape(p[i:], T[i:], qv[i:], adiabat=adiabat)
+    cape, cin, _, _, _ = getcape(p[i:], T[i:], qv[i:], adiabat=adiabat)
     while (cape < min_cape) or (cin > max_cin):
-        cape, cin, _, _, _, _, _, _ = getcape(p[i:], T[i:], qv[i:], adiabat=adiabat)
+        cape, cin, _, _, _ = getcape(p[i:], T[i:], qv[i:], adiabat=adiabat)
         i = i + 1
-    p_bot = p[i] * 100
+    p_bot = p[i]
     
     # Determine top of effective inflow layer
     
     while (cape > min_cape) and (cin < max_cin):
-        cape, cin, _, _, _, _, _, _ = getcape(p[i:], T[i:], qv[i:], adiabat=adiabat)
+        cape, cin, _, _, _ = getcape(p[i:], T[i:], qv[i:], adiabat=adiabat)
         i = i + 1
-    p_top = p[i] * 100
+    p_top = p[i]
     
     return p_top, p_bot
 

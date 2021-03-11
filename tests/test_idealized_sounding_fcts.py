@@ -161,7 +161,7 @@ def test_calcsound_out_to_df():
     assert len(df) == 76
     np.testing.assert_allclose(df['DCAPE'].values[:5], DCAPE, atol=0.05)
 
-'''
+
 def test_effect_inflow():
 
     # Read in CM1 Weisman-Klemp sounding
@@ -182,7 +182,7 @@ def test_effect_inflow():
     assert p_bot1 == pytest.approx(99437.76, 0.1)
     assert p_bot2 == pytest.approx(95014.45, 0.1)
 
-
+'''
 def test_param_vprof():
     
     # Read in CM1 Weisman-Klemp sounding
