@@ -18,6 +18,7 @@ Environment: local_py (Python 3.6)
 
 import numpy as np
 import pandas as pd
+import scipy.optimize as so
 
 import metpy.calc as mc
 from metpy.units import units
@@ -1047,6 +1048,40 @@ def weisman_klemp(z, qv0=0.014, theta0=300.0, p0=100000.0, z_tr=12000.0, theta_t
 # Functions for McCaul-Weisman Analytic Sounding
 #---------------------------------------------------------------------------------------------------
 
+def getqv_from_thetae(T, p, the):
+    """
+    Compute the water vapor mass mixing ratio for a given T, p, and theta-e
+
+    Parameters
+    ----------
+    T : float
+        Temperature (K)
+    p : float
+        Pressure (Pa)
+    the : float
+        Equivalent potential temperature (K)
+
+    Returns
+    -------
+    qv : float
+        Water vapor mass mixing ratio (kg/kg)
+
+    """
+    
+    # Define function to find root of
+    
+    def funct(qv, T=300., p=1.0e5, the=335.):
+        return getthe(T, p, qv) - the
+    
+    # Initial guess for qv (assume relative humidity of 50%)
+    
+    qv0 = getqv(0.5, T, p)
+    
+    qv = so.root(funct, qv0, args=(T, p, the), tol=0.001).x[0]
+    
+    return qv  
+
+
 def create_pbl(thetae, T_sfc, p_sfc, dz, lapse_rate=(0.0085 * units.kelvin / units.meter),
                depth=None, lr=0.0001):
     """
@@ -1070,14 +1105,14 @@ def create_pbl(thetae, T_sfc, p_sfc, dz, lapse_rate=(0.0085 * units.kelvin / uni
         lr = Lapse rate in LFC-LCL layer is equal to the MALR - lr (K / m)
     """
 
-    # Extract necessary constants from MetPy
+    # Define constants
 
     Rd = 287.04
     g = 9.81
 
     # Determine surface dewpoint
 
-    qv_sfc = gc.getq(p_sfc.magnitude, T_sfc.magnitude, thetae.magnitude)
+    qv_sfc = getqv_from_thetae(T_sfc.magnitude, p_sfc.magnitude, thetae.magnitude)
     Td_sfc = getTd(T_sfc.magnitude, p_sfc.magnitude, qv_sfc) * units.kelvin
 
     # Determine surface virtual temperature
@@ -1109,7 +1144,7 @@ def create_pbl(thetae, T_sfc, p_sfc, dz, lapse_rate=(0.0085 * units.kelvin / uni
 
         # Update qv by forcing thetae to be constant
 
-        qv_prof.append(gc.getq(p_prof[i], T_prof[i], thetae.magnitude))
+        qv_prof.append(getqv_from_thetae(T_prof[i], p_prof[i], thetae.magnitude))
         Td_prof.append(getTd(T_prof[i], p_prof[i], qv_prof[i]))
         Tv = getTv(T_prof[i], qv_prof[i])
 
@@ -1131,7 +1166,7 @@ def create_pbl(thetae, T_sfc, p_sfc, dz, lapse_rate=(0.0085 * units.kelvin / uni
             
             T_prof.append(mc.moist_lapse(np.array(p_prof[i-1:]) * units.pascal,
                                          T_prof[i-1] * units.kelvin).magnitude[-1] + T_adjust)
-            qv_prof.append(gc.getq(p_prof[i], T_prof[i], thetae.magnitude))
+            qv_prof.append(getqv_from_thetae(T_prof[i], p_prof[i], thetae.magnitude))
             Td_prof.append(getTd(T_prof[1], p_prof[i], qv_prof[i]))
             
             # Update Tv
