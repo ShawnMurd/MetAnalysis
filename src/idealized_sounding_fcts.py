@@ -293,7 +293,7 @@ def getthe(T, p, qv):
 # Define Function to Compute Sounding Parameters Following getcape.F from CM1
 #---------------------------------------------------------------------------------------------------
 
-def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0):
+def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0, returnB=False):
     """
     Compute various sounding parameters.
 
@@ -320,6 +320,8 @@ def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0):
         Mixed-layer depth for source = 'ml' (m)
     pinc : float, optional
         Pressure increment for integration of hydrostatic equation (Pa)
+    returnB: boolean, optional
+        Option to return an array of parcel buoyancies (in m s^-2)
 
     Returns
     -------
@@ -454,6 +456,10 @@ def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0):
     zlcl = -1.0
     zlfc = -1.0
     zel  = -1.0
+    
+    if returnB:
+        B_all = np.zeros(nlvl - kmax)
+        B_all[0] = B2
 
     # Parcel ascent: Loop over each vertical level in sounding
 
@@ -540,6 +546,8 @@ def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0):
         thv2 = th2 * (1. + reps*qv2) / (1. + qv2 + ql2 + qi2)
         B2 = g * (thv2 - thv[k]) / thv[k]
         dz = -cpdg * 0.5 * (thv[k] + thv[k-1]) * (pi[k] - pi[k-1])
+        if returnB:
+            B_all[k-kmax] = B2
 
         if (zlcl > 0.0 and zlfc < 0.0 and B2 > 0.0):
             if B1 > 0.0:
@@ -578,7 +586,10 @@ def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0):
         if (p[k] <= 10000. and B2 <= 0.):
             break
 
-    return cape, cin, zlcl, zlfc, zel
+    if returnB:
+        return cape, cin, zlcl, zlfc, zel, B_all
+    else:
+        return cape, cin, zlcl, zlfc, zel
 
 '''
 # Perform tests
@@ -930,11 +941,6 @@ def param_vprof(p, T, qv, pbot, ptop, adiabat=1, ric=0, rjc=0, zc=1.5, bhrad=10.
     ibot = np.argmin(np.abs(p - pbot))
     itop = np.argmin(np.abs(p - ptop))
     
-    # Put p, T, and q in correct units
-    
-    p = p / 100.0
-    T = T - 273.15
-    
     # Initialize output dictionary
     
     nlvls = len(p[ibot:itop+1])
@@ -951,7 +957,7 @@ def param_vprof(p, T, qv, pbot, ptop, adiabat=1, ric=0, rjc=0, zc=1.5, bhrad=10.
     # Loop through each vertical level
     
     for i in range(ibot, itop+1):
-        out = gB.getcape(1, adiabat, p[i:], T[i:], qv[i:])
+        out = getcape(p[i:], T[i:], qv[i:], source='sfc', adiabat=adiabat, returnB=True)
         for j, s in enumerate(params):
             param_dict[s][i] = out[j]
         B[i, :len(out[5])] = out[5]
