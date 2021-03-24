@@ -87,6 +87,40 @@ def test_getthe():
 # Test Sounding Parameter Functions
 #---------------------------------------------------------------------------------------------------
 
+def test_sounding_pressure():
+
+    # Read in CM1 Weisman-Klemp sounding
+
+    wk_df = pd.read_csv('../sample_data/cm1_weisman_klemp_snd.csv')    
+
+    z = wk_df['z (m)'].values
+    th = wk_df['theta (K)'].values
+    qv = wk_df['qv (kg/kg)'].values
+    p = wk_df['prs (Pa)'].values
+
+    # Compute pressures
+    
+    p_isf = isf.sounding_pressure(z, th, qv, p[0])
+
+    np.testing.assert_allclose(p_isf, p, atol=0.02)
+
+def test_sounding_height():
+
+    # Read in CM1 Weisman-Klemp sounding
+
+    wk_df = pd.read_csv('../sample_data/cm1_weisman_klemp_snd.csv')    
+
+    z = wk_df['z (m)'].values
+    th = wk_df['theta (K)'].values
+    qv = wk_df['qv (kg/kg)'].values
+    p = wk_df['prs (Pa)'].values
+
+    # Compute pressures
+    
+    z_isf = isf.sounding_height(p, th, qv, z[0])
+
+    np.testing.assert_allclose(z_isf, z, atol=0.02)
+
 def test_getcape():
     
     # Read in CM1 Weisman-Klemp sounding
@@ -126,41 +160,6 @@ def test_getcape():
 #---------------------------------------------------------------------------------------------------
 # Test Functions Related to Vertical Profiles of Sounding Parameters
 #---------------------------------------------------------------------------------------------------
-
-def test_sounding_pressure():
-
-    # Read in CM1 Weisman-Klemp sounding
-
-    wk_df = pd.read_csv('../sample_data/cm1_weisman_klemp_snd.csv')    
-
-    z = wk_df['z (m)'].values
-    th = wk_df['theta (K)'].values
-    qv = wk_df['qv (kg/kg)'].values
-    p = wk_df['prs (Pa)'].values
-
-    # Compute pressures
-    
-    p_isf = isf.sounding_pressure(z, th, qv, p[0])
-
-    np.testing.assert_allclose(p_isf, p, atol=0.02)
-
-def test_sounding_height():
-
-    # Read in CM1 Weisman-Klemp sounding
-
-    wk_df = pd.read_csv('../sample_data/cm1_weisman_klemp_snd.csv')    
-
-    z = wk_df['z (m)'].values
-    th = wk_df['theta (K)'].values
-    qv = wk_df['qv (kg/kg)'].values
-    p = wk_df['prs (Pa)'].values
-
-    # Compute pressures
-    
-    z_isf = isf.sounding_height(p, th, qv, z[0])
-
-    np.testing.assert_allclose(z_isf, z, atol=0.02)
-
 
 def test_calcsound_out_to_df():
     df = isf.calcsound_out_to_df('../sample_data/oun1999050318.out')
@@ -237,6 +236,21 @@ def test_weisman_klemp():
     np.testing.assert_allclose(isf_df['T'][1:].values, T, atol=0.05)
     np.testing.assert_allclose(isf_df['qv'][1:].values, qv, atol=0.00005)
     np.testing.assert_allclose(isf_df['p'][1:].values, p, atol=2.5)
+    
+
+#---------------------------------------------------------------------------------------------------
+# McCaul-Weisman Analytic Sounding Tests
+#---------------------------------------------------------------------------------------------------
+
+def test_getqv_from_thetae():
+    
+    T = 290.0
+    p = 95000.0
+    qv_truth = 0.01
+    the = isf.getthe(T, p, qv_truth)
+    qv = isf.getqv_from_thetae(T, p, the)
+    
+    assert qv == pytest.approx(qv_truth, abs=0.001)
     
 
 """

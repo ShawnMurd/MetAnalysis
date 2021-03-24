@@ -24,5 +24,6 @@
   "test_idealized_sounding_fcts.py::test_get_qvs",
   "test_getcape.py::test_getcape_pseudo",
   "test_getcape.py::test_getcape",
-  "test_idealized_sounding_fcts.py::test_getcape"
+  "test_idealized_sounding_fcts.py::test_getcape",
+  "test_idealized_sounding_fcts.py::test_getqv_from_thetae"
 ]

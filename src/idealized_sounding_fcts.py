@@ -1082,7 +1082,6 @@ def getqv_from_thetae(T, p, the):
     # Initial guess for qv (assume relative humidity of 50%)
     
     qv0 = getqv(0.5, T, p)
-    
     qv = so.root(funct, qv0, args=(T, p, the), tol=0.001).x[0]
     
     return qv  
