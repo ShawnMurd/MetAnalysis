@@ -108,6 +108,10 @@ def test_getcape():
     truth['mu_pseudo']     = (2384.172, 0.7342, 1232.674, 1306.146, 11967.149)
     truth['ml_pseudo']     = (1974.274, 31.535, 1008.741, 1502.865, 11548.418)
     
+    # "True" buoyancy values from getB_sfm5282.F
+    
+    trueB = np.loadtxt('../sample_data/wk_sb_pseudo_buoy.txt')
+    
     for (src, adbt, t) in zip(['sfc', 'sfc', 'sfc', 'mu', 'ml'], [1, 2, 3, 1, 1], tlab):
         gc_out = isf.getcape(p, T, qv, source=src, adiabat=adbt)
         assert gc_out[0] == pytest.approx(truth[t][0], rel=0.005)
@@ -115,6 +119,9 @@ def test_getcape():
         assert gc_out[2] == pytest.approx(truth[t][2], rel=0.005)
         assert gc_out[3] == pytest.approx(truth[t][3], rel=0.005)
         assert gc_out[4] == pytest.approx(truth[t][4], rel=0.005)
+        
+    B = isf.getcape(p, T, qv, returnB=True)[5]
+    np.testing.assert_allclose(B, trueB, atol=0.0005)
 
 #---------------------------------------------------------------------------------------------------
 # Test Functions Related to Vertical Profiles of Sounding Parameters

@@ -293,6 +293,77 @@ def getthe(T, p, qv):
 # Define Function to Compute Sounding Parameters Following getcape.F from CM1
 #---------------------------------------------------------------------------------------------------
 
+def sounding_pressure(z, th, qv, p0):
+    """
+    Computes the pressure profile for the given height, temperature, and water vapor mixing ratio
+    profile using an upward integration of the hydrostatic balance equation.
+    Inputs:
+        z = Sounding heights (m)
+        th = Sounding potential temperatures (K)
+        qv = Sounding water vapor mass mixing ratios (kg / kg)
+        p0 = Pressure corresponding to z[0] (Pa)
+    Outputs:
+        p = Sounding pressure (Pa)
+    """
+
+    # Define constants
+
+    reps = 461.5 / 287.04
+    rd = 287.04
+    cp = 1005.7
+    p00 = 100000.0
+    g = 9.81
+
+    # Compute Exner function and virtual potential temperature
+
+    pi = np.zeros(z.shape)
+    pi[0] = exner(p0)
+    thv = th * (1.0 + (reps * qv)) / (1.0 + qv)
+
+    # Integrate hydrostatic equation upward from surface
+
+    for i in range(1, z.size):
+        pi[i] = pi[i-1] - g * (z[i] - z[i-1]) / (cp * 0.5 * (thv[i] + thv[i-1]))
+
+    p = p00 * (pi ** (cp / rd))
+
+    return p
+
+
+def sounding_height(p, th, qv, z0):
+    """
+    Computes the height profile for the given pressure, temperature, and water vapor mixing ratio
+    profile using an upward integration of the hydrostatic balance equation.
+    Inputs:
+        p = Sounding pressures (Pa)
+        th = Sounding potential temperatures (K)
+        qv = Sounding water vapor mass mixing ratios (kg / kg)
+        z0 = Height corresponding to p[0] (m)
+    Outputs:
+        z = Sounding heights (m)
+    """
+
+    # Define constants
+
+    reps = 461.5 / 287.04
+    cp = 1005.7
+    g = 9.81
+    cpdg = cp / g
+
+    # Compute Exner function and virtual potential temperature
+
+    pi = exner(p)
+    thv = th * (1.0 + (reps * qv)) / (1.0 + qv)
+
+    # Integrate hydrostatic equation upward from surface
+
+    z = np.zeros(p.shape)
+    z[0] = z0
+    for i in range(1, p.size):
+        z[i] = z[i-1] - cpdg * 0.5 * (thv[i] + thv[i-1]) * (pi[i] - pi[i-1])
+
+    return z
+
 def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0, returnB=False):
     """
     Compute various sounding parameters.
@@ -591,7 +662,7 @@ def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0, return
     else:
         return cape, cin, zlcl, zlfc, zel
 
-'''
+
 # Perform tests
 
 import datetime as dt
@@ -605,10 +676,10 @@ p = wk_df['prs (Pa)'].values
 print('Calling getcape...')
 print(dt.datetime.now())
 start = dt.datetime.now()
-gc_out = getcape(p, T, qv, source='sfc', adiabat=1)
+gc_out = getcape(p, T, qv, source='sfc', adiabat=1, returnB=True)
 print('total time =', dt.datetime.now() - start)
-print(gc_out)
-'''
+print(gc_out[:5])
+
 
 #---------------------------------------------------------------------------------------------------
 # Define Function to Print Environmental Parameters
@@ -657,77 +728,6 @@ def print_env_param(T, p, qv, print_results=True, adiabat=1):
 #---------------------------------------------------------------------------------------------------
 # Define Functions Related to Vertical Profiles of Sounding Parameters
 #---------------------------------------------------------------------------------------------------
-
-def sounding_pressure(z, th, qv, p0):
-    """
-    Computes the pressure profile for the given height, temperature, and water vapor mixing ratio
-    profile using an upward integration of the hydrostatic balance equation.
-    Inputs:
-        z = Sounding heights (m)
-        th = Sounding potential temperatures (K)
-        qv = Sounding water vapor mass mixing ratios (kg / kg)
-        p0 = Pressure corresponding to z[0] (Pa)
-    Outputs:
-        p = Sounding pressure (Pa)
-    """
-
-    # Define constants
-
-    reps = 461.5 / 287.04
-    rd = 287.04
-    cp = 1005.7
-    p00 = 100000.0
-    g = 9.81
-
-    # Compute Exner function and virtual potential temperature
-
-    pi = np.zeros(z.shape)
-    pi[0] = exner(p0)
-    thv = th * (1.0 + (reps * qv)) / (1.0 + qv)
-
-    # Integrate hydrostatic equation upward from surface
-
-    for i in range(1, z.size):
-        pi[i] = pi[i-1] - g * (z[i] - z[i-1]) / (cp * 0.5 * (thv[i] + thv[i-1]))
-
-    p = p00 * (pi ** (cp / rd))
-
-    return p
-
-
-def sounding_height(p, th, qv, z0):
-    """
-    Computes the height profile for the given pressure, temperature, and water vapor mixing ratio
-    profile using an upward integration of the hydrostatic balance equation.
-    Inputs:
-        p = Sounding pressures (Pa)
-        th = Sounding potential temperatures (K)
-        qv = Sounding water vapor mass mixing ratios (kg / kg)
-        z0 = Height corresponding to p[0] (m)
-    Outputs:
-        z = Sounding heights (m)
-    """
-
-    # Define constants
-
-    reps = 461.5 / 287.04
-    cp = 1005.7
-    g = 9.81
-    cpdg = cp / g
-
-    # Compute Exner function and virtual potential temperature
-
-    pi = exner(p)
-    thv = th * (1.0 + (reps * qv)) / (1.0 + qv)
-
-    # Integrate hydrostatic equation upward from surface
-
-    z = np.zeros(p.shape)
-    z[0] = z0
-    for i in range(1, p.size):
-        z[i] = z[i-1] - cpdg * 0.5 * (thv[i] + thv[i-1]) * (pi[i] - pi[i-1])
-
-    return z
 
 def cm1_snd_helper(cm1_sounding):
     """
