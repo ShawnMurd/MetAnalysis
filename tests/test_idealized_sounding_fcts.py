@@ -253,6 +253,31 @@ def test_getqv_from_thetae():
     assert qv == pytest.approx(qv_truth, abs=0.001)
     
 
+def test_mccaul_weisman():
+
+    # Read in CM1 McCaul-Weisman soundings    
+
+    truth_vLFC = isf.cm1_snd_helper('../sample_data/1000m_CM1_input_vLFC')
+    truth_cLFC = isf.cm1_snd_helper('../sample_data/1000m_CM1_input_cLFC')
+    z = truth_vLFC['z'].values
+    
+    # Compute McCaul-Weisman soundings using MetAnalysis
+    
+    vLFC = isf.mccaul_weisman(z, T_sfc=298.43, pbl_lapse=0.0091, crit_lapse=0.009425)
+    cLFC = isf.mccaul_weisman(z, T_sfc=298.43, pbl_lapse=0.009328, crit_lapse=0.009475, 
+                                 pbl_depth=2300.0)
+    
+    # Compare T, qv, and p profiles
+    
+    np.testing.assert_allclose(vLFC['T'].values, truth_vLFC['T'].values, rtol=0.0075)
+    np.testing.assert_allclose(vLFC['qv'].values, truth_vLFC['qv'].values, atol=0.075e-3)
+    np.testing.assert_allclose(vLFC['prs'].values, truth_vLFC['p'].values, rtol=0.02)
+    
+    np.testing.assert_allclose(cLFC['T'].values, truth_cLFC['T'].values, rtol=0.0075)
+    np.testing.assert_allclose(cLFC['qv'].values, truth_cLFC['qv'].values, atol=0.075e-3)
+    np.testing.assert_allclose(cLFC['prs'].values, truth_cLFC['p'].values, rtol=0.02)
+    
+
 """
 End test_idealized_sounding_fcts.py
 """ 
