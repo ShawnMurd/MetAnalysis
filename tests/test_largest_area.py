@@ -50,3 +50,8 @@ def test_weighted_avg_ctr():
                           weights=np.array([4, 5, 3, 6, 3, 4, 5]))
 
     assert np.isclose(avg, true_avg)
+
+
+"""
+End test_largest_area.py
+"""

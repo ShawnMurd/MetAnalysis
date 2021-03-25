@@ -18,12 +18,10 @@ Environment: local_py (Python 3.6)
 
 import numpy as np
 import pandas as pd
+import scipy.optimize as so
 
 import metpy.calc as mc
 from metpy.units import units
-
-import MetAnalysis.src.getcape as gc
-import MetAnalysis.src.getB as gB
 
 
 #---------------------------------------------------------------------------------------------------
@@ -78,40 +76,47 @@ def getTfromTheta(theta, p):
     return theta * exner(p)
 
 
-def get_es(T):
+def get_es(T, sfc='l'):
     """
-    Compute equilibrium vapor pressure (over liquid water).
+    Compute equilibrium vapor pressure (over liquid water or ice).
     Reference:
         Markowski and Richardson (2010) eqn 2.16
     Inputs:
         T = Temperature (K)
     Outputs:
-        e_s = equilibrium vapor pressure over liquid water (Pa)
+        e_s = Equilibrium vapor pressure over liquid water (Pa)
+    Keywords:
+        sfc = Surface over which to compute es (liquid = 'l', ice = 'i')
     """
   
     T = T - 273.15
-    e_s = 611.2 * np.exp(17.67 * T / (T + 243.5))
+    if sfc == 'l':
+        e_s = 611.2 * np.exp(17.67 * T / (T + 243.5))
+    elif sfc == 'i':
+        e_s = 611.2 * np.exp(21.8745584 * T / (T + 265.49))
 
     return e_s
 
 
-def get_qvl(T, p):
+def get_qvs(T, p, sfc='l'):
     """
-    Compute equilibrium water vapor mass mixing ratio (over liquid water).
+    Compute equilibrium water vapor mass mixing ratio (over liquid water or ice).
     Inputs:
         T = Temperature (K)
         p = Pressure (Pa)
     Outputs:
-        qvl = Equilibrium water vapor mass mixing ratio (kg / kg)
+        qvs = Equilibrium water vapor mass mixing ratio (kg / kg)
+    Keywords:
+        sfc = Surface over which to compute es (liquid = 'l', ice = 'i')
     """
 
     Rv = 461.5
     Rd = 287.04
     eps = Rd / Rv
-    es = get_es(T)
-    qvl = eps * es / (p - es)
+    es = get_es(T, sfc=sfc)
+    qvs = eps * es / (p - es)
 
-    return qvl
+    return qvs
 
 
 def getTv(T, qv):
@@ -181,7 +186,41 @@ def getqv(RH, T, p):
         qv = Water vapor mass mixing ratio (kg / kg)
     """
 
-    return RH * get_qvl(T, p)
+    return RH * get_qvs(T, p)
+
+
+def getTd(T, p, qv):
+    """
+    Compute dewpoint by inverting the Clausius-Clapeyron equation
+
+    Parameters
+    ----------
+    T : array
+        Temperature profile (K)
+    p : array
+        Pressure profile (Pa)
+    qv : array
+        Water vapor mass mixing ratio profile (kg / kg)
+
+    Returns
+    -------
+    Td : array
+        Dewpoint profile (K)
+    
+    Notes
+    -----
+    See Markowski and Richardson (2010) eqn (2.16)
+
+    """
+    
+    Rv = 461.5
+    Rd = 287.04
+    eps = Rd / Rv
+    
+    ln_e = np.log(((qv / eps) * p) / (1 + (qv / eps)))
+    Td = 273.15 + (1562.1558 - 243.4 * ln_e) / (ln_e - 24.08542)
+    
+    return Td
 
 
 def buoy(T_p, p_p, qv_p, T_env, p_env, qv_env):
@@ -210,57 +249,48 @@ def buoy(T_p, p_p, qv_p, T_env, p_env, qv_env):
     return B
 
 
-#---------------------------------------------------------------------------------------------------
-# Define Function to Print Environmental Parameters
-#---------------------------------------------------------------------------------------------------
+def getthe(T, p, qv):
+    """
+    Compute pseudoequivalent potential temperature following the approximation of Bolton (1980, MWR)
 
-def print_env_param(T, p, qv, print_results=True, adiabat=1):
-    """
-    Print various thermodynamic environmental parameters (e.g., CAPE, CIN, LFC) using getcape.
-    Inputs:
-        T = Environmental temperature profile (K)
-        p = Environmental pressure profile (Pa)
-        qv = Environmental water vapor mixing ratio profile (kg / kg)
-    Outputs:
-        param_dict = Dictionary containing the same environmental parameters printed to the screen
-    Keywords:
-        print_results = Option to print parameters
-        adiabat = Adiabat option for getcape
-            1: Pseudoadiabatic, liquid only
-            2: Reversible, liquid only
-            3: Pseudoadiabatic, with ice
-            4: Reversible, with ice
+    Parameters
+    ----------
+    T : array
+        Temperature profile (K)
+    p : array
+        Pressure profile (Pa)
+    qv : array
+        Water vapor mass mixing ratio profile (kg / kg)
+
+    Returns
+    -------
+    the : array
+        Pseudoequivalent potential temperature (K)
+
     """
     
-    # Put T and p in correct units (deg C and hPa)
+    # Compute LCL temperature
     
-    T = T - 273.15
-    p = p / 100.0
+    Td = getTd(T, p, qv)
     
-    # Compute sounding parameters using getcape and fill param_dict
-    
-    param_dict = {}
-    params = ['CAPE', 'CIN', 'LCL', 'LFC', 'EL']
-    units = ['J / kg', 'J / kg', 'm', 'm', 'm']
-    
-    for i, p in enumerate(['SB', 'MU', 'ML']):
-        out = gc.getcape(i+1, adiabat, p, T, qv)
-        for j, param in enumerate(params):
-            param_dict[p + param] = out[j]
-    
-    # Print results to screen
-    
-    if print_results:
-        for p in ['SB', 'MU', 'ML']:
-            for k, (param, u) in enumerate(zip(params, units)):
-                print('%s%s = %.2f %s' % (p, param, param_dict[p + param], u))
-            print()
+    Tlcl = 56. + 1. / (1. / (Td - 56.0) + 0.00125 * np.log(T / Td))
+    if type(T) == float:
+        if (Td - T) >= -0.1:
+            Tlcl = T
+    else:
+        if (Td - T >= -0.1).sum() > 0:
+            Tlcl[np.where((Td - T) >= -0.1)] = T
         
-    return param_dict
+    # Compute theta-ep
+    
+    the = (T * (100000. / p) ** (0.2854 * (1. - 0.28 * qv)) * 
+           np.exp(((3376. / Tlcl) - 2.54) * qv * (1. + 0.81 * qv)))
+           
+    return the
 
 
 #---------------------------------------------------------------------------------------------------
-# Define Functions Related to Vertical Profiles of Sounding Parameters
+# Define Function to Compute Sounding Parameters Following getcape.F from CM1
 #---------------------------------------------------------------------------------------------------
 
 def sounding_pressure(z, th, qv, p0):
@@ -316,7 +346,6 @@ def sounding_height(p, th, qv, z0):
     # Define constants
 
     reps = 461.5 / 287.04
-    rd = 287.04
     cp = 1005.7
     g = 9.81
     cpdg = cp / g
@@ -334,6 +363,372 @@ def sounding_height(p, th, qv, z0):
         z[i] = z[i-1] - cpdg * 0.5 * (thv[i] + thv[i-1]) * (pi[i] - pi[i-1])
 
     return z
+
+
+def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0, returnB=False):
+    """
+    Compute various sounding parameters.
+
+    Parameters
+    ----------
+    p : array
+        Pressure profile (Pa)
+    T : array
+        Temperature profile (K)
+    qv : array
+        Water vapor mass mixing ratio profile (kg / kg)
+    source : string, optional
+        Parcel to lift. Options:
+            'sfc' = Surface-based
+            'mu' = Most-unstable (max theta-e)
+            'ml' = Mixed-layer
+    adiabat : integer, optional
+        Adiabat to follow for parcel ascent. Options:
+            1 = Pseudoadiabatic, liquid only
+            2 = Reversible, liquid only
+            3 = Pseudoadiabatic, with ice
+            4 = Reversible, with ice
+    ml_depth : float, optional
+        Mixed-layer depth for source = 'ml' (m)
+    pinc : float, optional
+        Pressure increment for integration of hydrostatic equation (Pa)
+    returnB: boolean, optional
+        Option to return an array of parcel buoyancies (in m s^-2)
+
+    Returns
+    -------
+    cape : float
+        Convective available potential energy (J / kg)
+    cin : float
+        Convective inhibition (J / kg)
+    zlcl : float
+        Lifting condensation level (m)
+    zlfc : float
+        Level of free convetcion (m)
+    zel : float
+        Equilibrium level (m)
+    
+    Notes
+    -----
+    Credit to George Bryan (NCAR) for writing the original getcape.F subroutine [which is 
+    distributed as part of Cloud Model 1 (CM1)]
+    
+    Timing tests using the WK82 sample sounding from CM1:
+        This code    ~ 0.6 s   (on fujita, see code snipet below)
+        Fortran code ~ 0.006 s (on Roar interactive node)
+    
+    """
+
+    # Define constants
+
+    g     = 9.81
+    p00   = 100000.0
+    cp    = 1005.7
+    rd    = 287.04
+    rv    = 461.5
+    xlv   = 2501000.0
+    xls   = 2836017.0
+    t0    = 273.15
+    cpv   = 1875.0
+    cpl   = 4190.0
+    cpi   = 2118.636
+    lv1   = xlv+(cpl-cpv)*t0
+    lv2   = cpl-cpv
+    ls1   = xls+(cpi-cpv)*t0
+    ls2   = cpi-cpv
+
+    rp00  = 1.0/p00
+    reps  = rv/rd
+    rddcp = rd/cp
+    cpdg  = cp/g
+
+    converge = 0.0002
+    nlvl = p.shape[0]
+
+    # Compute derived quantities
+    
+    pi = exner(p)
+    th = theta(T, p)
+    thv = thetav(T, p, qv)
+    z = sounding_height(p, th, qv, 0.0)
+
+    # Determine initial parcel location
+
+    if source == 'sfc':
+        kmax = 0
+
+    elif source == 'mu':
+        idxmax = (p >= 50000.0).sum()
+        thetae = getthe(T[:idxmax], p[:idxmax], qv[:idxmax])
+        kmax = np.argmax(thetae)
+
+    elif source == 'ml':
+        
+        if z[1] > ml_depth:
+            avgth = th[0]
+            avgqv = qv[0]
+            kmax = 0
+        elif z[-1] < ml_depth:
+            avgth = th[-1]
+            avgqv = qv[-1]
+            kmax = th.size -1
+        else:
+            
+            # Compute the average theta and qv weighted by the distance between two sounding levels
+            
+            ktop = np.where(z <= ml_depth)[0][-1]
+            ml_th = 0.5 * (th[:ktop] + th[1:(ktop+1)])
+            ml_qv = 0.5 * (qv[:ktop] + qv[1:(ktop+1)])
+            depths = z[1:(ktop+1)] - z[:ktop]
+            
+            avgth = np.average(ml_th, weights=depths)
+            avgqv = np.average(ml_qv, weights=depths)
+            kmax = 0
+
+    else:
+        print()
+        print('Unknown value for source (source = %s), using surface-based parcel instead' % source)
+        print()
+        kmax = 0
+        
+    # Define initial parcel properties
+
+    th2  = th[kmax]
+    pi2  = pi[kmax]
+    p2   = p[kmax]
+    T2   = T[kmax]
+    thv2 = thv[kmax]
+    qv2  = qv[kmax]
+    B2   = 0.0
+
+    if source == 'ml':
+        th2  = avgth
+        qv2  = avgqv
+        T2   = getTfromTheta(th2, p2)
+        thv2 = thetav(T2, p2, qv2)
+        B2   = buoy(T2, p2, qv2, T[kmax], p[kmax], qv[kmax])
+        
+    # Initialize variables for parcel ascent
+
+    narea = 0.0
+
+    ql2 = 0.0
+    qi2 = 0.0
+    qt  = qv2
+
+    cape = 0.0
+    cin  = 0.0
+
+    cloud = False
+    if (adiabat == 1 or adiabat == 2):
+        ice = False
+    else:
+        ice = True
+
+    zlcl = -1.0
+    zlfc = -1.0
+    zel  = -1.0
+    
+    if returnB:
+        B_all = np.zeros(nlvl - kmax)
+        B_all[0] = B2
+
+    # Parcel ascent: Loop over each vertical level in sounding
+
+    for k in range(kmax+1, nlvl):
+
+        B1 =  B2
+        dp = p[k-1] - p[k]
+
+        # Substep dp in increments equal to pinc
+
+        nloop = 1 + int(dp/pinc)
+        dp = dp / float(nloop)
+
+        for n in range(nloop):
+
+            p1   =  p2
+            T1   =  T2
+            th1  = th2
+            qv1  = qv2
+            ql1  = ql2
+            qi1  = qi2
+
+            p2 = p2 - dp
+            pi2 = (p2*rp00)**rddcp
+
+            thlast = th1
+            i = 0
+            not_converged = True
+
+            while not_converged:
+                i = i + 1
+                T2 = thlast * pi2
+                
+                if ice:
+                    fliq = max(min((T2 - 233.15) / (273.15 - 233.15), 1.0), 0.0)
+                    fice = 1.0 - fliq
+                else:
+                    fliq = 1.0
+                    fice = 0.0
+                    
+                qv2 = min(qt, fliq * get_qvs(T2, p2) + fice * get_qvs(T2, p2, sfc='i'))
+                qi2 = max(fice * (qt - qv2), 0.0)
+                ql2 = max(qt - qv2 - qi2, 0.0)
+
+                Tbar  = 0.5*(T1 + T2)
+                qvbar = 0.5*(qv1 + qv2)
+                qlbar = 0.5*(ql1 + ql2)
+                qibar = 0.5*(qi1 + qi2)
+
+                lhv = lv1 - lv2*Tbar
+                lhs = ls1 - ls2*Tbar
+
+                rm  = rd + rv*qvbar
+                cpm = cp + cpv*qvbar + cpl*qlbar + cpi*qibar
+                th2 = th1 * np.exp(lhv*(ql2 - ql1) / (cpm*Tbar)  
+                                   + lhs*(qi2 - qi1) / (cpm*Tbar) 
+                                   + (rm/cpm - rd/cp) * np.log(p2/p1))
+
+                if i > 90: 
+                    print('%d, %.2f, %.2f, %.2f' % (i, th2, thlast, th2 - thlast))
+                if i > 100:
+                    raise RuntimeError('Max number of iterations (100) reached')
+                             
+                if abs(th2 - thlast) > converge:
+                    thlast = thlast + 0.3*(th2 - thlast)
+                else:
+                    not_converged = False
+            
+            # Latest pressure increment is complete.  Calculate some important stuff:
+
+            if ql2 >= 1.0e-10: 
+                cloud = True
+            if (cloud and zlcl < 0.0):
+                zlcl = z[k-1] + (z[k]-z[k-1]) * float(n) / float(nloop)
+
+            if (adiabat == 1 or adiabat == 3):
+                # pseudoadiabat
+                qt  = qv2
+                ql2 = 0.0
+                qi2 = 0.0            
+            elif (adiabat <= 0 or adiabat >= 5):
+                raise RuntimeError('Undefined adiabat (%d)' % adiabat)
+
+        thv2 = th2 * (1. + reps*qv2) / (1. + qv2 + ql2 + qi2)
+        B2 = g * (thv2 - thv[k]) / thv[k]
+        dz = -cpdg * 0.5 * (thv[k] + thv[k-1]) * (pi[k] - pi[k-1])
+        if returnB:
+            B_all[k-kmax] = B2
+
+        if (zlcl > 0.0 and zlfc < 0.0 and B2 > 0.0):
+            if B1 > 0.0:
+                zlfc = zlcl
+            else:
+                zlfc = z[k-1] + (z[k] - z[k-1]) * (0.0 - B1) / (B2 - B1)
+
+        if (zlfc > 0.0 and zel < 0.0 and B2 < 0.0):
+            zel = z[k-1] + (z[k] - z[k-1]) * (0.0 - B1) / (B2-B1)
+
+        # Get contributions to CAPE and CIN:
+
+        if (B2 >= 0.0 and B1 < 0.0):
+            # first trip into positive area
+            frac = B2 / (B2 - B1)
+            parea =  0.5*B2*dz*frac
+            narea = narea - 0.5*B1*dz*(1.-frac)
+            cin  = cin  + narea
+            narea = 0.0
+        elif (B2 < 0.0 and B1 > 0.0):
+            # first trip into neg area
+            frac = B1 / (B1 - B2)
+            parea =  0.5*B1*dz*frac
+            narea = -0.5*B2*dz*(1.0-frac)
+        elif B2 < 0.0:
+            # still collecting negative buoyancy
+            parea =  0.0
+            narea = narea - 0.5*dz*(B1+B2)
+        else:
+            # still collecting positive buoyancy
+            parea =  0.5*dz*(B1+B2)
+            narea =  0.0
+
+        cape = cape + max(0.0, parea)
+
+        if (p[k] <= 10000. and B2 <= 0.):
+            break
+
+    if returnB:
+        return cape, cin, zlcl, zlfc, zel, B_all
+    else:
+        return cape, cin, zlcl, zlfc, zel
+
+'''
+# Perform tests
+
+import datetime as dt
+
+wk_df = pd.read_csv('../sample_data/cm1_weisman_klemp_snd.csv')    
+
+T = wk_df['theta (K)'].values * wk_df['pi'].values
+qv = wk_df['qv (kg/kg)'].values
+p = wk_df['prs (Pa)'].values
+
+print('Calling getcape...')
+print(dt.datetime.now())
+start = dt.datetime.now()
+gc_out = getcape(p, T, qv, source='sfc', adiabat=1)
+print('total time =', dt.datetime.now() - start)
+print(gc_out[:5])
+'''
+
+#---------------------------------------------------------------------------------------------------
+# Define Function to Print Environmental Parameters
+#---------------------------------------------------------------------------------------------------
+
+def print_env_param(T, p, qv, print_results=True, adiabat=1):
+    """
+    Print various thermodynamic environmental parameters (e.g., CAPE, CIN, LFC) using getcape.
+    Inputs:
+        T = Environmental temperature profile (K)
+        p = Environmental pressure profile (Pa)
+        qv = Environmental water vapor mixing ratio profile (kg / kg)
+    Outputs:
+        param_dict = Dictionary containing the same environmental parameters printed to the screen
+    Keywords:
+        print_results = Option to print parameters
+        adiabat = Adiabat option for getcape
+            1: Pseudoadiabatic, liquid only
+            2: Reversible, liquid only
+            3: Pseudoadiabatic, with ice
+            4: Reversible, with ice
+    """
+    
+    # Compute sounding parameters using getcape and fill param_dict
+    
+    param_dict = {}
+    params = ['CAPE', 'CIN', 'LCL', 'LFC', 'EL']
+    units = ['J / kg', 'J / kg', 'm', 'm', 'm']
+    
+    for src in ['sfc', 'mu', 'ml']:
+        out = getcape(p, T, qv, source=src, adiabat=adiabat)
+        for j, param in enumerate(params):
+            param_dict[src + param] = out[j]
+    
+    # Print results to screen
+    
+    if print_results:
+        for src in ['sfc', 'mu', 'ml']:
+            for k, (param, u) in enumerate(zip(params, units)):
+                print('%s%s = %.2f %s' % (src, param, param_dict[src + param], u))
+            print()
+        
+    return param_dict
+
+
+#---------------------------------------------------------------------------------------------------
+# Define Functions Related to Vertical Profiles of Sounding Parameters
+#---------------------------------------------------------------------------------------------------
 
 def cm1_snd_helper(cm1_sounding):
     """
@@ -472,26 +867,21 @@ def effect_inflow(p, T, qv, min_cape=100, max_cin=250, adiabat=1):
             4: Reversible, with ice
     """
     
-    # Put p, T, and q in correct units
-    
-    p = p / 100.0
-    T = T - 273.15
-    
     # Determine bottom of effective inflow layer
     
     i = 0
-    cape, cin, _, _, _, _, _, _ = gc.getcape(1, adiabat, p[i:], T[i:], qv[i:])
+    cape, cin, _, _, _ = getcape(p[i:], T[i:], qv[i:], adiabat=adiabat)
     while (cape < min_cape) or (cin > max_cin):
-        cape, cin, _, _, _, _, _, _ = gc.getcape(1, adiabat, p[i:], T[i:], qv[i:])
+        cape, cin, _, _, _ = getcape(p[i:], T[i:], qv[i:], adiabat=adiabat)
         i = i + 1
-    p_bot = p[i] * 100
+    p_bot = p[i]
     
     # Determine top of effective inflow layer
     
     while (cape > min_cape) and (cin < max_cin):
-        cape, cin, _, _, _, _, _, _ = gc.getcape(1, adiabat, p[i:], T[i:], qv[i:])
+        cape, cin, _, _, _ = getcape(p[i:], T[i:], qv[i:], adiabat=adiabat)
         i = i + 1
-    p_top = p[i] * 100
+    p_top = p[i]
     
     return p_top, p_bot
 
@@ -541,8 +931,8 @@ def param_vprof(p, T, qv, pbot, ptop, adiabat=1, ric=0, rjc=0, zc=1.5, bhrad=10.
         thpert[inds] = bptpert * (np.cos(0.5 * np.pi * beta[inds]) ** 2.0)
 
         if maintain_rh:
-            rh = qv / get_qvl(th * pi, p)
-            qv = rh * get_qvl((th + thpert) * pi, p)
+            rh = qv / get_qvs(th * pi, p)
+            qv = rh * get_qvs((th + thpert) * pi, p)
 
         th = th * thpert
         T = th * pi   
@@ -551,11 +941,6 @@ def param_vprof(p, T, qv, pbot, ptop, adiabat=1, ric=0, rjc=0, zc=1.5, bhrad=10.
 
     ibot = np.argmin(np.abs(p - pbot))
     itop = np.argmin(np.abs(p - ptop))
-    
-    # Put p, T, and q in correct units
-    
-    p = p / 100.0
-    T = T - 273.15
     
     # Initialize output dictionary
     
@@ -573,7 +958,7 @@ def param_vprof(p, T, qv, pbot, ptop, adiabat=1, ric=0, rjc=0, zc=1.5, bhrad=10.
     # Loop through each vertical level
     
     for i in range(ibot, itop+1):
-        out = gB.getcape(1, adiabat, p[i:], T[i:], qv[i:])
+        out = getcape(p[i:], T[i:], qv[i:], source='sfc', adiabat=adiabat, returnB=True)
         for j, s in enumerate(params):
             param_dict[s][i] = out[j]
         B[i, :len(out[5])] = out[5]
@@ -670,12 +1055,45 @@ def weisman_klemp(z, qv0=0.014, theta0=300.0, p0=100000.0, z_tr=12000.0, theta_t
 # Functions for McCaul-Weisman Analytic Sounding
 #---------------------------------------------------------------------------------------------------
 
+def getqv_from_thetae(T, p, the):
+    """
+    Compute the water vapor mass mixing ratio for a given T, p, and theta-e
+
+    Parameters
+    ----------
+    T : float
+        Temperature (K)
+    p : float
+        Pressure (Pa)
+    the : float
+        Equivalent potential temperature (K)
+
+    Returns
+    -------
+    qv : float
+        Water vapor mass mixing ratio (kg/kg)
+
+    """
+    
+    # Define function to find root of
+    
+    def funct(qv, T=300., p=1.0e5, the=335.):
+        return getthe(T, p, qv) - the
+    
+    # Initial guess for qv (assume relative humidity of 50%)
+    
+    qv0 = getqv(0.5, T, p)
+    qv = so.root(funct, qv0, args=(T, p, the), tol=0.001).x[0]
+    
+    return qv  
+
+
 def create_pbl(thetae, T_sfc, p_sfc, dz, lapse_rate=(0.0085 * units.kelvin / units.meter),
                depth=None, lr=0.0001):
     """
     Construct the PBL of an atmospheric sounding using a constant theta-e value and hydrostatic
     balance. Above the LCL, a constant theta-e layer with a lapse rate slightly less than the moist
-    adibatic lapse rate is used (similar to McCaul and Cohen 2002).
+    adiabatic lapse rate is used (similar to McCaul and Cohen 2002).
     Inputs:
         thetae = Constant equivalent potential temperature values in the PBL (K)
         T_sfc = Surface temperature (K)
@@ -693,15 +1111,15 @@ def create_pbl(thetae, T_sfc, p_sfc, dz, lapse_rate=(0.0085 * units.kelvin / uni
         lr = Lapse rate in LFC-LCL layer is equal to the MALR - lr (K / m)
     """
 
-    # Extract necessary constants from MetPy
+    # Define constants
 
-    Rd = const.Rd.to(units.joule / units.kilogram / units.kelvin).magnitude
-    g = const.g.magnitude
+    Rd = 287.04
+    g = 9.81
 
     # Determine surface dewpoint
 
-    qv_sfc = gc.getq(p_sfc.magnitude, T_sfc.magnitude, thetae.magnitude)
-    Td_sfc = gc.gettd(p_sfc.magnitude, T_sfc.magnitude, qv_sfc) * units.kelvin
+    qv_sfc = getqv_from_thetae(T_sfc.magnitude, p_sfc.magnitude, thetae.magnitude)
+    Td_sfc = getTd(T_sfc.magnitude, p_sfc.magnitude, qv_sfc) * units.kelvin
 
     # Determine surface virtual temperature
 
@@ -732,8 +1150,8 @@ def create_pbl(thetae, T_sfc, p_sfc, dz, lapse_rate=(0.0085 * units.kelvin / uni
 
         # Update qv by forcing thetae to be constant
 
-        qv_prof.append(gc.getq(p_prof[i], T_prof[i], thetae.magnitude))
-        Td_prof.append(gc.gettd(p_prof[i], T_prof[i], qv_prof[i]))
+        qv_prof.append(getqv_from_thetae(T_prof[i], p_prof[i], thetae.magnitude))
+        Td_prof.append(getTd(T_prof[i], p_prof[i], qv_prof[i]))
         Tv = getTv(T_prof[i], qv_prof[i])
 
     z_lcl = z_prof[-1]
@@ -754,8 +1172,8 @@ def create_pbl(thetae, T_sfc, p_sfc, dz, lapse_rate=(0.0085 * units.kelvin / uni
             
             T_prof.append(mc.moist_lapse(np.array(p_prof[i-1:]) * units.pascal,
                                          T_prof[i-1] * units.kelvin).magnitude[-1] + T_adjust)
-            qv_prof.append(gc.getq(p_prof[i], T_prof[i], thetae.magnitude))
-            Td_prof.append(gc.gettd(p_prof[i], T_prof[1], qv_prof[i]))
+            qv_prof.append(getqv_from_thetae(T_prof[i], p_prof[i], thetae.magnitude))
+            Td_prof.append(getTd(T_prof[1], p_prof[i], qv_prof[i]))
             
             # Update Tv
 
@@ -837,7 +1255,7 @@ def mccaul_weisman(z, E=2000.0, m=2.2, H=12500.0, z_trop=12000.0, RH_min=0.1, p_
     pbl_z = z_pbl[-1]
     
     rh_pbl = mc.relative_humidity_from_dewpoint(T_pbl, Td_pbl)
-    qv_prof[:pbl_top_ind] = mc.mixing_ratio_from_relative_humidity(rh_pbl, T_pbl, p_pbl)
+    qv_prof[:pbl_top_ind] = mc.mixing_ratio_from_relative_humidity(p_pbl, T_pbl, rh_pbl)
     
     Tv_env_prof[:pbl_top_ind] = getTv(T_pbl, qv_prof[:pbl_top_ind])
     Tv_parcel_prof[:pbl_top_ind] = getTv(mc.dry_lapse(p_pbl, T_sfc), qv_prof[0])
@@ -889,7 +1307,7 @@ def mccaul_weisman(z, E=2000.0, m=2.2, H=12500.0, z_trop=12000.0, RH_min=0.1, p_
             # Compute qv by assuming that RH varies linearly from the PBL top to tropopause
             
             RH = pbl_top_rh + (z[i] - pbl_z) * (RH_min - pbl_top_rh) / (z_trop - pbl_z)
-            qv_prof[i] = mc.mixing_ratio_from_relative_humidity(RH, T_env, p_prof[i])
+            qv_prof[i] = mc.mixing_ratio_from_relative_humidity(p_prof[i], T_env, RH)
 
         else:
             
@@ -901,7 +1319,7 @@ def mccaul_weisman(z, E=2000.0, m=2.2, H=12500.0, z_trop=12000.0, RH_min=0.1, p_
                 T_trop = Tv_env_prof[i-1]
 
             Tv_env_prof[i] = T_trop
-            qv_prof[i] = mc.mixing_ratio_from_relative_humidity(RH, T_trop, p_prof[i])
+            qv_prof[i] = mc.mixing_ratio_from_relative_humidity(p_prof[i], T_trop, RH)
 
             p_array = np.array([p_sfc.magnitude, p_prof[i].magnitude]) * units.pascal
             T_parcel = mc.parcel_profile(p_array, T_sfc, Td_sfc)[-1]
@@ -918,9 +1336,8 @@ def mccaul_weisman(z, E=2000.0, m=2.2, H=12500.0, z_trop=12000.0, RH_min=0.1, p_
     # in the appendix of Warren et al. (2017)
 
     T_env_prof = getTfromTv(Tv_env_prof, qv_prof)    
-    RH_prof = mc.relative_humidity_from_mixing_ratio(qv_prof, T_env_prof, p_prof)
-    getcape_out = gc.getcape(1, 1, p_prof.magnitude / 100.0, T_env_prof.magnitude - 273.15,
-                             qv_prof)
+    RH_prof = mc.relative_humidity_from_mixing_ratio(p_prof, T_env_prof, qv_prof)
+    getcape_out = getcape(p_prof.magnitude, T_env_prof.magnitude, qv_prof)
     E_t = getcape_out[0] * units.joule / units.kilogram
     ratio = (E / E_t)
 
@@ -965,7 +1382,7 @@ def mccaul_weisman(z, E=2000.0, m=2.2, H=12500.0, z_trop=12000.0, RH_min=0.1, p_
                 # Compute qv by assuming that RH varies linearly from PBL top to tropopause
             
                 RH_prof[i] = pbl_top_rh + (z[i] - pbl_z) * (RH_min - pbl_top_rh) / (z_trop - pbl_z)
-                qv_prof[i] = mc.mixing_ratio_from_relative_humidity(RH_prof[i], T_env, p_prof[i])
+                qv_prof[i] = mc.mixing_ratio_from_relative_humidity(p_prof[i], T_env, RH_prof[i])
 
             elif (z[i] > z_trop):
 
@@ -975,7 +1392,7 @@ def mccaul_weisman(z, E=2000.0, m=2.2, H=12500.0, z_trop=12000.0, RH_min=0.1, p_
 
                 Tv_env_prof[i] = T_trop
                 RH_prof[i] = RH_prof[i-1]
-                qv_prof[i] = mc.mixing_ratio_from_relative_humidity(RH_prof[i], T_trop, p_prof[i])
+                qv_prof[i] = mc.mixing_ratio_from_relative_humidity(p_prof[i], T_trop, RH_prof[i])
 
             # Find pressure of next vertical level using hydrostatic balance
 
@@ -987,8 +1404,7 @@ def mccaul_weisman(z, E=2000.0, m=2.2, H=12500.0, z_trop=12000.0, RH_min=0.1, p_
         # Re-compute E_t
 
         T_env_prof = getTfromTv(Tv_env_prof, qv_prof)
-        getcape_out = gc.getcape(1, 1, p_prof.magnitude / 100.0, T_env_prof.magnitude - 273.15,
-                                 qv_prof)
+        getcape_out = getcape(p_prof.magnitude, T_env_prof.magnitude, qv_prof)
         E_t = getcape_out[0] * units.joule / units.kilogram
         ratio = ratio * (E / E_t)
     
@@ -1005,8 +1421,8 @@ def mccaul_weisman(z, E=2000.0, m=2.2, H=12500.0, z_trop=12000.0, RH_min=0.1, p_
     
     # Add temperature and dewpoint
     
-    RH_prof = mc.relative_humidity_from_mixing_ratio(qv_prof, T_env_prof, p_prof)
-    Td_prof = mc.dewpoint_rh(T_env_prof, RH_prof).to(units.degC)
+    RH_prof = mc.relative_humidity_from_mixing_ratio(p_prof, T_env_prof, qv_prof)
+    Td_prof = mc.dewpoint_from_relative_humidity(T_env_prof, RH_prof).to(units.degC)
     
     thermo_prof['Td'] = pd.Series(Td_prof.to(units.kelvin).magnitude)
 

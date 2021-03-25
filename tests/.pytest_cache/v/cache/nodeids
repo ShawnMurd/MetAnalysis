@@ -15,5 +15,16 @@
   "test_idealized_sounding_fcts.py::test_weisman_klemp",
   "test_kine_fcts.py::test_circ",
   "test_largest_area.py::test_largestArea",
-  "test_largest_area.py::test_weighted_avg_ctr"
+  "test_largest_area.py::test_weighted_avg_ctr",
+  "test_idealized_sounding_fcts.py::test_sounding_pressure_noJIT",
+  "test_idealized_sounding_fcts.py::test_weisman_klemp_noJIT",
+  "test_idealized_sounding_fcts.py::test_getTd",
+  "test_idealized_sounding_fcts.py::test_getthe",
+  "test_idealized_sounding_fcts.py::test_get_es",
+  "test_idealized_sounding_fcts.py::test_get_qvs",
+  "test_getcape.py::test_getcape_pseudo",
+  "test_getcape.py::test_getcape",
+  "test_idealized_sounding_fcts.py::test_getcape",
+  "test_idealized_sounding_fcts.py::test_getqv_from_thetae",
+  "test_idealized_sounding_fcts.py::test_mccaul_weisman"
 ]
