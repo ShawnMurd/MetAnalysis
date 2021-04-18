@@ -1,15 +1,18 @@
 """
 Idealized Soundings Functions
 
-Functions to create the McCaul and Weisman (2001) analytic soundings.
-
 The functions used herein compute CAPE, CIN, LCL, etc. using a the formulation found in getcape.F
 within George Bryan's CM1 (cm1r19.8).
+
+A note about Numba JIT: Although the compiled versions of the functions in this module run faster
+than non-compiled versions, the overhead associated with compiling the functions can take 
+considerable time and compilation is done the first time a JIT-compiled function is encountered in  
+each script. This overhead can be reduced by caching the compiled function (cache=True) so that
+compilation only occurs when this module is altered. 
 
 Shawn Murdzek
 sfm5282@psu.edu
 Date Created: October 10, 2019
-Environment: local_py (Python 3.6)
 """
 
 #---------------------------------------------------------------------------------------------------
@@ -19,6 +22,7 @@ Environment: local_py (Python 3.6)
 import numpy as np
 import pandas as pd
 import scipy.optimize as so
+from numba import jit
 
 import metpy.calc as mc
 from metpy.units import units
@@ -76,6 +80,7 @@ def getTfromTheta(theta, p):
     return theta * exner(p)
 
 
+@jit(nopython=True, cache=True)
 def get_es(T, sfc='l'):
     """
     Compute equilibrium vapor pressure (over liquid water or ice).
@@ -98,6 +103,7 @@ def get_es(T, sfc='l'):
     return e_s
 
 
+@jit(nopython=True, cache=True)
 def get_qvs(T, p, sfc='l'):
     """
     Compute equilibrium water vapor mass mixing ratio (over liquid water or ice).
@@ -189,6 +195,7 @@ def getqv(RH, T, p):
     return RH * get_qvs(T, p)
 
 
+@jit(nopython=True, cache=True)
 def getTd(T, p, qv):
     """
     Compute dewpoint by inverting the Clausius-Clapeyron equation
@@ -249,6 +256,7 @@ def buoy(T_p, p_p, qv_p, T_env, p_env, qv_env):
     return B
 
 
+@jit(nopython=True, cache=True)
 def getthe(T, p, qv):
     """
     Compute pseudoequivalent potential temperature following the approximation of Bolton (1980, MWR)
@@ -274,12 +282,6 @@ def getthe(T, p, qv):
     Td = getTd(T, p, qv)
     
     Tlcl = 56. + 1. / (1. / (Td - 56.0) + 0.00125 * np.log(T / Td))
-    if type(T) == float:
-        if (Td - T) >= -0.1:
-            Tlcl = T
-    else:
-        if (Td - T >= -0.1).sum() > 0:
-            Tlcl[np.where((Td - T) >= -0.1)] = T
         
     # Compute theta-ep
     
@@ -293,6 +295,7 @@ def getthe(T, p, qv):
 # Define Function to Compute Sounding Parameters Following getcape.F from CM1
 #---------------------------------------------------------------------------------------------------
 
+@jit(nopython=True, cache=True)
 def sounding_pressure(z, th, qv, p0):
     """
     Computes the pressure profile for the given height, temperature, and water vapor mixing ratio
@@ -317,7 +320,7 @@ def sounding_pressure(z, th, qv, p0):
     # Compute Exner function and virtual potential temperature
 
     pi = np.zeros(z.shape)
-    pi[0] = exner(p0)
+    pi[0] = (p0 / p00) ** (rd / cp)
     thv = th * (1.0 + (reps * qv)) / (1.0 + qv)
 
     # Integrate hydrostatic equation upward from surface
@@ -330,6 +333,7 @@ def sounding_pressure(z, th, qv, p0):
     return p
 
 
+@jit(nopython=True, cache=True)
 def sounding_height(p, th, qv, z0):
     """
     Computes the height profile for the given pressure, temperature, and water vapor mixing ratio
@@ -346,13 +350,14 @@ def sounding_height(p, th, qv, z0):
     # Define constants
 
     reps = 461.5 / 287.04
+    rd = 287.04
     cp = 1005.7
     g = 9.81
     cpdg = cp / g
 
     # Compute Exner function and virtual potential temperature
 
-    pi = exner(p)
+    pi = (p / 100000.0) ** (rd / cp)
     thv = th * (1.0 + (reps * qv)) / (1.0 + qv)
 
     # Integrate hydrostatic equation upward from surface
@@ -365,7 +370,8 @@ def sounding_height(p, th, qv, z0):
     return z
 
 
-def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0, returnB=False):
+@jit(nopython=True, cache=True)
+def _lift_parcel(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0):
     """
     Compute various sounding parameters.
 
@@ -392,8 +398,6 @@ def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0, return
         Mixed-layer depth for source = 'ml' (m)
     pinc : float, optional
         Pressure increment for integration of hydrostatic equation (Pa)
-    returnB: boolean, optional
-        Option to return an array of parcel buoyancies (in m s^-2)
 
     Returns
     -------
@@ -407,16 +411,14 @@ def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0, return
         Level of free convetcion (m)
     zel : float
         Equilibrium level (m)
+    B : array
+        Buoyancy profile following the lifted parcel (m / s^2)
     
     Notes
     -----
     Credit to George Bryan (NCAR) for writing the original getcape.F subroutine [which is 
     distributed as part of Cloud Model 1 (CM1)]
-    
-    Timing tests using the WK82 sample sounding from CM1:
-        This code    ~ 0.6 s   (on fujita, see code snipet below)
-        Fortran code ~ 0.006 s (on Roar interactive node)
-    
+
     """
 
     # Define constants
@@ -447,9 +449,9 @@ def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0, return
 
     # Compute derived quantities
     
-    pi = exner(p)
-    th = theta(T, p)
-    thv = thetav(T, p, qv)
+    pi = (p*rp00) ** rddcp
+    th = T / pi
+    thv = th * (1. + reps*qv) / (1. + qv)
     z = sounding_height(p, th, qv, 0.0)
 
     # Determine initial parcel location
@@ -471,7 +473,7 @@ def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0, return
         elif z[-1] < ml_depth:
             avgth = th[-1]
             avgqv = qv[-1]
-            kmax = th.size -1
+            kmax = th.size - 1
         else:
             
             # Compute the average theta and qv weighted by the distance between two sounding levels
@@ -481,14 +483,11 @@ def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0, return
             ml_qv = 0.5 * (qv[:ktop] + qv[1:(ktop+1)])
             depths = z[1:(ktop+1)] - z[:ktop]
             
-            avgth = np.average(ml_th, weights=depths)
-            avgqv = np.average(ml_qv, weights=depths)
+            avgth = np.sum(ml_th * depths) / np.sum(depths)
+            avgqv = np.sum(ml_qv * depths) / np.sum(depths)
             kmax = 0
 
     else:
-        print()
-        print('Unknown value for source (source = %s), using surface-based parcel instead' % source)
-        print()
         kmax = 0
         
     # Define initial parcel properties
@@ -504,9 +503,9 @@ def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0, return
     if source == 'ml':
         th2  = avgth
         qv2  = avgqv
-        T2   = getTfromTheta(th2, p2)
-        thv2 = thetav(T2, p2, qv2)
-        B2   = buoy(T2, p2, qv2, T[kmax], p[kmax], qv[kmax])
+        T2   = th2 * pi2
+        thv2 = th2 * (1. + reps*qv2) / (1. + qv2)
+        B2   = g * (thv2 - thv[kmax]) / thv[kmax]
         
     # Initialize variables for parcel ascent
 
@@ -525,13 +524,11 @@ def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0, return
     else:
         ice = True
 
-    zlcl = -1.0
-    zlfc = -1.0
-    zel  = -1.0
-    
-    if returnB:
-        B_all = np.zeros(nlvl - kmax)
-        B_all[0] = B2
+    zlcl     = -1.0
+    zlfc     = -1.0
+    zel      = -1.0
+    B_all    = np.zeros(nlvl - kmax)
+    B_all[0] = B2
 
     # Parcel ascent: Loop over each vertical level in sounding
 
@@ -590,8 +587,6 @@ def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0, return
                                    + lhs*(qi2 - qi1) / (cpm*Tbar) 
                                    + (rm/cpm - rd/cp) * np.log(p2/p1))
 
-                if i > 90: 
-                    print('%d, %.2f, %.2f, %.2f' % (i, th2, thlast, th2 - thlast))
                 if i > 100:
                     raise RuntimeError('Max number of iterations (100) reached')
                              
@@ -612,14 +607,11 @@ def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0, return
                 qt  = qv2
                 ql2 = 0.0
                 qi2 = 0.0            
-            elif (adiabat <= 0 or adiabat >= 5):
-                raise RuntimeError('Undefined adiabat (%d)' % adiabat)
 
         thv2 = th2 * (1. + reps*qv2) / (1. + qv2 + ql2 + qi2)
         B2 = g * (thv2 - thv[k]) / thv[k]
         dz = -cpdg * 0.5 * (thv[k] + thv[k-1]) * (pi[k] - pi[k-1])
-        if returnB:
-            B_all[k-kmax] = B2
+        B_all[k-kmax] = B2
 
         if (zlcl > 0.0 and zlfc < 0.0 and B2 > 0.0):
             if B1 > 0.0:
@@ -658,29 +650,70 @@ def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0, return
         if (p[k] <= 10000. and B2 <= 0.):
             break
 
+    return cape, cin, zlcl, zlfc, zel, B_all
+
+
+def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0, returnB=False):
+    """
+    Compute various sounding parameters.
+
+    Parameters
+    ----------
+    p : array
+        Pressure profile (Pa)
+    T : array
+        Temperature profile (K)
+    qv : array
+        Water vapor mass mixing ratio profile (kg / kg)
+    source : string, optional
+        Parcel to lift. Options:
+            'sfc' = Surface-based
+            'mu' = Most-unstable (max theta-e)
+            'ml' = Mixed-layer
+    adiabat : integer, optional
+        Adiabat to follow for parcel ascent. Options:
+            1 = Pseudoadiabatic, liquid only
+            2 = Reversible, liquid only
+            3 = Pseudoadiabatic, with ice
+            4 = Reversible, with ice
+    ml_depth : float, optional
+        Mixed-layer depth for source = 'ml' (m)
+    pinc : float, optional
+        Pressure increment for integration of hydrostatic equation (Pa)
+    returnB : boolean, optional
+        Option to return buoyancy profile
+
+    Returns
+    -------
+    cape : float
+        Convective available potential energy (J / kg)
+    cin : float
+        Convective inhibition (J / kg)
+    zlcl : float
+        Lifting condensation level (m)
+    zlfc : float
+        Level of free convetcion (m)
+    zel : float
+        Equilibrium level (m)
+    B : array
+        Buoyancy profile following the lifted parcel (m / s^2)
+    
+    Notes
+    -----
+    Timing tests using the WK82 sample sounding from CM1:
+        No JIT       ~ 0.6 s   (on fujita)
+        With JIT     ~ 0.004 s (on fujita, not including compilation time)
+        Fortran code ~ 0.006 s (on Roar interactive node)
+    
+    """
+    
+    out = _lift_parcel(p, T, qv, source=source, adiabat=adiabat, ml_depth=ml_depth, pinc=pinc)
+    
     if returnB:
-        return cape, cin, zlcl, zlfc, zel, B_all
+        return out
     else:
-        return cape, cin, zlcl, zlfc, zel
+        return out[:-1]
 
-'''
-# Perform tests
-
-import datetime as dt
-
-wk_df = pd.read_csv('../sample_data/cm1_weisman_klemp_snd.csv')    
-
-T = wk_df['theta (K)'].values * wk_df['pi'].values
-qv = wk_df['qv (kg/kg)'].values
-p = wk_df['prs (Pa)'].values
-
-print('Calling getcape...')
-print(dt.datetime.now())
-start = dt.datetime.now()
-gc_out = getcape(p, T, qv, source='sfc', adiabat=1)
-print('total time =', dt.datetime.now() - start)
-print(gc_out[:5])
-'''
 
 #---------------------------------------------------------------------------------------------------
 # Define Function to Print Environmental Parameters
