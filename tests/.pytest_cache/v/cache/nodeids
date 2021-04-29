@@ -26,5 +26,6 @@
   "test_getcape.py::test_getcape",
   "test_idealized_sounding_fcts.py::test_getcape",
   "test_idealized_sounding_fcts.py::test_getqv_from_thetae",
-  "test_idealized_sounding_fcts.py::test_mccaul_weisman"
+  "test_idealized_sounding_fcts.py::test_mccaul_weisman",
+  "test_idealized_sounding_fcts.py::test_getRH"
 ]

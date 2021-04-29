@@ -68,6 +68,11 @@ def test_getqv():
     assert qv == pytest.approx(0.00823486627799, 0.00005)
 
 
+def test_getRH():
+    RH = isf.getRH(285.0, 80000.0, 0.01)
+    assert RH == pytest.approx(0.91079553907, 0.00005)
+
+
 def test_getTd():
     Td = isf.getTd(285.0, 90000.0, 0.005)
     assert Td == pytest.approx(275.384, abs=0.05)
