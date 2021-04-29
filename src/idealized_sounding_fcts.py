@@ -195,6 +195,33 @@ def getqv(RH, T, p):
     return RH * get_qvs(T, p)
 
 
+def getRH(T, p, qv):
+    """
+    Compute relative humidity from water vapor mass mixing ratio
+    
+    Parameters
+    ----------
+    RH : array
+        Relative humidity (decimal)
+    T : array
+        Temperature (K)
+    p : array
+        Pressure (Pa)
+    
+    Returns
+    -------
+    qv : array 
+        Water vapor mass mixing ratio (kg / kg)
+        
+    Notes
+    -----
+    See Markowski and Richardson (2010) eqn (2.14)
+    
+    """
+
+    return qv / get_qvs(T, p)
+
+
 @jit(nopython=True, cache=True)
 def getTd(T, p, qv):
     """
@@ -1288,7 +1315,7 @@ def mccaul_weisman(z, E=2000.0, m=2.2, H=12500.0, z_trop=12000.0, RH_min=0.1, p_
     pbl_z = z_pbl[-1]
     
     rh_pbl = mc.relative_humidity_from_dewpoint(T_pbl, Td_pbl)
-    qv_prof[:pbl_top_ind] = mc.mixing_ratio_from_relative_humidity(p_pbl, T_pbl, rh_pbl)
+    qv_prof[:pbl_top_ind] = getqv(rh_pbl, T_pbl, p_pbl)
     
     Tv_env_prof[:pbl_top_ind] = getTv(T_pbl, qv_prof[:pbl_top_ind])
     Tv_parcel_prof[:pbl_top_ind] = getTv(mc.dry_lapse(p_pbl, T_sfc), qv_prof[0])
@@ -1340,7 +1367,7 @@ def mccaul_weisman(z, E=2000.0, m=2.2, H=12500.0, z_trop=12000.0, RH_min=0.1, p_
             # Compute qv by assuming that RH varies linearly from the PBL top to tropopause
             
             RH = pbl_top_rh + (z[i] - pbl_z) * (RH_min - pbl_top_rh) / (z_trop - pbl_z)
-            qv_prof[i] = mc.mixing_ratio_from_relative_humidity(p_prof[i], T_env, RH)
+            qv_prof[i] = getqv(RH, T_env, p_prof[i])
 
         else:
             
@@ -1352,7 +1379,7 @@ def mccaul_weisman(z, E=2000.0, m=2.2, H=12500.0, z_trop=12000.0, RH_min=0.1, p_
                 T_trop = Tv_env_prof[i-1]
 
             Tv_env_prof[i] = T_trop
-            qv_prof[i] = mc.mixing_ratio_from_relative_humidity(p_prof[i], T_trop, RH)
+            qv_prof[i] = getqv(RH, T_trop, p_prof[i])
 
             p_array = np.array([p_sfc.magnitude, p_prof[i].magnitude]) * units.pascal
             T_parcel = mc.parcel_profile(p_array, T_sfc, Td_sfc)[-1]
@@ -1415,7 +1442,7 @@ def mccaul_weisman(z, E=2000.0, m=2.2, H=12500.0, z_trop=12000.0, RH_min=0.1, p_
                 # Compute qv by assuming that RH varies linearly from PBL top to tropopause
             
                 RH_prof[i] = pbl_top_rh + (z[i] - pbl_z) * (RH_min - pbl_top_rh) / (z_trop - pbl_z)
-                qv_prof[i] = mc.mixing_ratio_from_relative_humidity(p_prof[i], T_env, RH_prof[i])
+                qv_prof[i] = getqv(RH_prof[i], T_env, p_prof[i])
 
             elif (z[i] > z_trop):
 
@@ -1425,7 +1452,7 @@ def mccaul_weisman(z, E=2000.0, m=2.2, H=12500.0, z_trop=12000.0, RH_min=0.1, p_
 
                 Tv_env_prof[i] = T_trop
                 RH_prof[i] = RH_prof[i-1]
-                qv_prof[i] = mc.mixing_ratio_from_relative_humidity(p_prof[i], T_trop, RH_prof[i])
+                qv_prof[i] = getqv(RH_prof[i], T_trop, p_prof[i])
 
             # Find pressure of next vertical level using hydrostatic balance
 
@@ -1445,19 +1472,13 @@ def mccaul_weisman(z, E=2000.0, m=2.2, H=12500.0, z_trop=12000.0, RH_min=0.1, p_
     
     thermo_prof = pd.DataFrame()
     
-    T_env_prof = getTfromTv(Tv_env_prof, qv_prof)
+    T_env_prof = getTfromTv(Tv_env_prof, qv_prof).to(units.kelvin).m
     
-    thermo_prof['z'] = pd.Series(z.magnitude)
+    thermo_prof['z']   = pd.Series(z.magnitude)
     thermo_prof['prs'] = pd.Series(p_prof.magnitude)
-    thermo_prof['T'] = pd.Series(T_env_prof.to(units.kelvin).magnitude)
-    thermo_prof['qv'] = pd.Series(qv_prof)
-    
-    # Add temperature and dewpoint
-    
-    RH_prof = mc.relative_humidity_from_mixing_ratio(p_prof, T_env_prof, qv_prof)
-    Td_prof = mc.dewpoint_from_relative_humidity(T_env_prof, RH_prof).to(units.degC)
-    
-    thermo_prof['Td'] = pd.Series(Td_prof.to(units.kelvin).magnitude)
+    thermo_prof['T']   = pd.Series(T_env_prof)
+    thermo_prof['qv']  = pd.Series(qv_prof)
+    thermo_prof['Td']  = pd.Series(getTd(T_env_prof, p_prof.m, qv_prof))
 
     return thermo_prof
 
