@@ -1187,7 +1187,7 @@ def create_pbl(thetae, T_sfc, p_sfc, dz, lapse_rate=(0.0085 * units.kelvin / uni
         z_prof = 1D array of heights in the sub-LCL layer (m)
         p_prof = 1D array of pressures in the sub-LCL layer (Pa)
         T_prof = 1D array of temperatures in the sub-LCL layer (K)
-        Td_prof = 1D array of dewpoints in the sub-LCL layer (K)
+        qv_prof = 1D array of water vapor mass mixing ratios in the sub-LCL layer (kg / kg)
         z_lcl = LCL height AGL (m)
     Keywords:
         lapse_rate = PBL lapse rate (K / m)
@@ -1270,9 +1270,9 @@ def create_pbl(thetae, T_sfc, p_sfc, dz, lapse_rate=(0.0085 * units.kelvin / uni
     z_prof = np.array(z_prof) * units.meter
     p_prof = np.array(p_prof) * units.pascal
     T_prof = np.array(T_prof) * units.kelvin
-    Td_prof = np.array(Td_prof) * units.kelvin
+    qv_prof = np.array(qv_prof)
 
-    return z_prof, p_prof, T_prof, Td_prof, z_lcl
+    return z_prof, p_prof, T_prof, qv_prof, z_lcl
 
 
 def mccaul_weisman(z, E=2000.0, m=2.2, H=12500.0, z_trop=12000.0, RH_min=0.1, p_sfc=1e5,
@@ -1331,24 +1331,22 @@ def mccaul_weisman(z, E=2000.0, m=2.2, H=12500.0, z_trop=12000.0, RH_min=0.1, p_
     # Determine LCL height and create sub-LCL thermodynamic profile
     
     dz = z[1] - z[0]
-    z_pbl, p_pbl, T_pbl, Td_pbl, lcl_z = create_pbl(thetae_pbl, T_sfc, p_sfc, dz, 
+    z_pbl, p_pbl, T_pbl, qv_pbl, lcl_z = create_pbl(thetae_pbl, T_sfc, p_sfc, dz, 
                                                     lapse_rate=pbl_lapse, 
                                                     depth=pbl_depth, lr=lr)
     
     pbl_top_ind = z_pbl.size
     pbl_z = z_pbl[-1]
     
-    rh_pbl = mc.relative_humidity_from_dewpoint(T_pbl, Td_pbl)
-    qv_prof[:pbl_top_ind] = getqv(rh_pbl, T_pbl, p_pbl)
-    
     Tv_env_prof[:pbl_top_ind] = getTv(T_pbl, qv_prof[:pbl_top_ind])
-    Tv_parcel_prof[:pbl_top_ind] = getTv(mc.dry_lapse(p_pbl, T_sfc), qv_prof[0])
+    Tv_parcel_prof[:pbl_top_ind] = getTv(DALR(T_sfc, p_pbl), qv_prof[0])
     p_prof[:pbl_top_ind] = p_pbl
+    qv_prof[:pbl_top_ind] = qv_pbl
     
     # Extract surface dewpoint and LCL relative humidity for later
     
-    Td_sfc = Td_pbl[0]
-    pbl_top_rh = rh_pbl[-1]
+    Td_sfc = getTd(T_pbl[0], p_pbl[0], qv_pbl[0])
+    pbl_top_rh = getRH(T_pbl[-1], p_pbl[-1], qv_pbl[-1])
     
     # Determine virtual temperature profile
 
