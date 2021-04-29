@@ -67,6 +67,30 @@ def theta(T, p):
     return T / exner(p)
 
 
+def DALR(T0, p):
+    """
+    Compute the temperature at a series of pressure levels assuming a dry adiabatic process
+
+    Parameters
+    ----------
+    T0 : float
+        Initial parcel temperature (K)
+    p : array
+        Pressure levels to compute parcel temperatures (Pa)
+
+    Returns
+    -------
+    T_prof : array
+        Parcel temperatures corresponding to the pressure levels in p (K)
+
+    """
+    
+    rd = 287.04
+    cp = 1005.7
+    
+    return T0 * (p / p[0]) ** (rd / cp)
+
+
 def getTfromTheta(theta, p):
     """
     Compute the temperature using the potential temperature and pressure
@@ -1341,7 +1365,7 @@ def mccaul_weisman(z, E=2000.0, m=2.2, H=12500.0, z_trop=12000.0, RH_min=0.1, p_
 
             p_array = np.array([p_sfc.magnitude, p_prof[i].magnitude]) * units.pascal
             T_parcel = mc.parcel_profile(p_array, T_sfc, Td_sfc)[-1]
-            qv_parcel = mc.saturation_mixing_ratio(p_prof[i], T_parcel)
+            qv_parcel = get_qvs(T_parcel, p_prof[i])
             Tv_parcel_prof[i] = getTv(T_parcel, qv_parcel)
 
             # Determine environmental temperature using buoyancy profile (eqn A1 from McCaul and
@@ -1383,7 +1407,7 @@ def mccaul_weisman(z, E=2000.0, m=2.2, H=12500.0, z_trop=12000.0, RH_min=0.1, p_
 
             p_array = np.array([p_sfc.magnitude, p_prof[i].magnitude]) * units.pascal
             T_parcel = mc.parcel_profile(p_array, T_sfc, Td_sfc)[-1]
-            qv_parcel = mc.saturation_mixing_ratio(p_prof[i], T_parcel)
+            qv_parcel = get_qvs(T_parcel, p_prof[i])
             Tv_parcel_prof[i] = getTv(T_parcel, qv_parcel)
 
         # Find pressure of next vertical level using hydrostatic balance
@@ -1396,7 +1420,7 @@ def mccaul_weisman(z, E=2000.0, m=2.2, H=12500.0, z_trop=12000.0, RH_min=0.1, p_
     # in the appendix of Warren et al. (2017)
 
     T_env_prof = getTfromTv(Tv_env_prof, qv_prof)    
-    RH_prof = mc.relative_humidity_from_mixing_ratio(p_prof, T_env_prof, qv_prof)
+    RH_prof = getRH(T_env_prof, p_prof, qv_prof)
     getcape_out = getcape(p_prof.magnitude, T_env_prof.magnitude, qv_prof)
     E_t = getcape_out[0] * units.joule / units.kilogram
     ratio = (E / E_t)
@@ -1407,8 +1431,7 @@ def mccaul_weisman(z, E=2000.0, m=2.2, H=12500.0, z_trop=12000.0, RH_min=0.1, p_
         
         T_parcel_prof = mc.parcel_profile(p_prof, T_sfc, Td_sfc)
         parcel_qv = np.ones(T_parcel_prof.shape) * qv_prof[0]
-        parcel_qv[pbl_top_ind:] = mc.saturation_mixing_ratio(p_prof[pbl_top_ind:],
-                                                             T_parcel_prof[pbl_top_ind:])
+        parcel_qv[pbl_top_ind:] = get_qvs(T_parcel_prof[pbl_top_ind:], p_prof[pbl_top_ind:])
         Tv_parcel_prof = getTv(T_parcel_prof, parcel_qv)
         
         # Re-compute temperature and qv profiles using E_t factor

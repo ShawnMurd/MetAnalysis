@@ -29,6 +29,12 @@ def test_theta():
     assert th == pytest.approx(290.966533, 0.001)
 
 
+def test_DALR():
+    T = isf.DALR(300.0, np.array([92500.0, 85000.0, 70000.0, 50000.0]))
+    T_truth = np.array([300.0, 292.8390735, 277.0367237, 251.64393933])
+    np.testing.assert_allclose(T, T_truth, rtol=0.001)
+    
+
 def test_getTfromTheta():
     T = isf.getTfromTheta(290.966533, 80000.0)
     assert T == pytest.approx(273.0, 0.001)
