@@ -82,6 +82,10 @@ def DALR(T0, p):
     -------
     T_prof : array
         Parcel temperatures corresponding to the pressure levels in p (K)
+        
+    Notes
+    -----
+    Methdology follows that used in dry_lapse from MetPy
 
     """
     
@@ -340,6 +344,42 @@ def getthe(T, p, qv):
            np.exp(((3376. / Tlcl) - 2.54) * qv * (1. + 0.81 * qv)))
            
     return the
+
+
+def getLCL(T, p, qv):
+    """
+    Compute the lifting condensation level pressure using the condition qv = qvs
+
+    Parameters
+    ----------
+    T : float
+        Initial parcel temperature (K)
+    p : float
+        Initial parcel pressure (Pa)
+    qv : float
+        Initial parcel water vapor mass mixing ratio (kg/kg)
+
+    Returns
+    -------
+    plcl : float
+        LCL pressure (Pa)
+
+    """
+    
+    def funct(p, T0=300., p0=100000., qv0=0.001):
+        return qv0 - get_qvs(DALR(T, np.array([p0, p]))[-1], p)
+    
+    # Initial guess (from the LCL formula in Kerry Emanuel's calcsound program)
+    
+    rh = getRH(T, p, qv)
+    if rh < 1.:
+        p0 = p * (rh ** (T / (1669. - 122.*rh - T)))
+        print(p0)
+        plcl = so.root(funct, p0, args=(T, p, qv), tol=0.001).x[0]
+    else:
+        plcl = p
+    
+    return plcl
 
 
 #---------------------------------------------------------------------------------------------------
@@ -1172,8 +1212,7 @@ def getqv_from_thetae(T, p, the):
     return qv  
 
 
-def create_pbl(thetae, T_sfc, p_sfc, dz, lapse_rate=(0.0085 * units.kelvin / units.meter),
-               depth=None, lr=0.0001):
+def create_pbl(thetae, T_sfc, p_sfc, dz, lapse_rate=0.0085, depth=None, lr=0.0001):
     """
     Construct the PBL of an atmospheric sounding using a constant theta-e value and hydrostatic
     balance. Above the LCL, a constant theta-e layer with a lapse rate slightly less than the moist
@@ -1188,7 +1227,6 @@ def create_pbl(thetae, T_sfc, p_sfc, dz, lapse_rate=(0.0085 * units.kelvin / uni
         p_prof = 1D array of pressures in the sub-LCL layer (Pa)
         T_prof = 1D array of temperatures in the sub-LCL layer (K)
         qv_prof = 1D array of water vapor mass mixing ratios in the sub-LCL layer (kg / kg)
-        z_lcl = LCL height AGL (m)
     Keywords:
         lapse_rate = PBL lapse rate (K / m)
         depth = Height of PBL (m). If None, PBL is terminated at LCL
@@ -1200,79 +1238,70 @@ def create_pbl(thetae, T_sfc, p_sfc, dz, lapse_rate=(0.0085 * units.kelvin / uni
     Rd = 287.04
     g = 9.81
 
-    # Determine surface dewpoint
+    # Determine surface conditions
 
-    qv_sfc = getqv_from_thetae(T_sfc.magnitude, p_sfc.magnitude, thetae.magnitude)
-    Td_sfc = getTd(T_sfc.magnitude, p_sfc.magnitude, qv_sfc) * units.kelvin
+    qv_sfc = getqv_from_thetae(T_sfc, p_sfc, thetae)
+    Tv = getTv(T_sfc, qv_sfc)
 
-    # Determine surface virtual temperature
+    # Determine LCL pressure
 
-    Tv = getTv(T_sfc, qv_sfc).magnitude
+    p_lcl = getLCL(T_sfc, p_sfc, qv_sfc)
 
-    # Determine LCL temperature and pressure
+    # Create sub-LCL profile
 
-    p_lcl, T_lcl = mc.lcl(p_sfc, T_sfc, Td_sfc)
-
-    # Determine LCL height via upward integration of hydrostatic balance eqn
-
-    p_prof = [p_sfc.magnitude]
-    T_prof = [T_sfc.magnitude]
-    Td_prof = [Td_sfc.magnitude]
+    p_prof = [p_sfc]
+    T_prof = [T_sfc]
     qv_prof = [qv_sfc]
     z_prof = [0]
 
     i = 0
-    while p_prof[i] > p_lcl.magnitude:
+    while p_prof[i] > p_lcl:
 
         i = i + 1
 
         # Compute p and T at next level using hydrostatic balance
 
-        p_prof.append(p_prof[i-1] - ((p_prof[i-1] * g * dz.magnitude) / (Rd * Tv)))
-        T_prof.append(T_prof[i-1] - (lapse_rate.magnitude * dz.magnitude))
-        z_prof.append(z_prof[i-1] + dz.magnitude)
+        p_prof.append(p_prof[i-1] - ((p_prof[i-1] * g * dz) / (Rd * Tv)))
+        T_prof.append(T_prof[i-1] - (lapse_rate * dz))
+        z_prof.append(z_prof[i-1] + dz)
 
         # Update qv by forcing thetae to be constant
 
-        qv_prof.append(getqv_from_thetae(T_prof[i], p_prof[i], thetae.magnitude))
-        Td_prof.append(getTd(T_prof[i], p_prof[i], qv_prof[i]))
+        qv_prof.append(getqv_from_thetae(T_prof[i], p_prof[i], thetae))
         Tv = getTv(T_prof[i], qv_prof[i])
-
-    z_lcl = z_prof[-1]
     
     # Create constant theta-e layer above LCL using an upward integration of the hydrostatic
     # balance eqn, if desired
 
     if depth != None:
         
-        T_adjust = lr * dz.magnitude
+        T_adjust = lr * dz
 
         while z_prof[i] < depth:
 
             i = i + 1
-            p_prof.append(p_prof[i-1] - ((p_prof[i-1] * g * dz.magnitude) / (Rd * Tv)))
+            p_prof.append(p_prof[i-1] - ((p_prof[i-1] * g * dz) / (Rd * Tv)))
 
             # Have T decrease at MALR - lr
             
             T_prof.append(mc.moist_lapse(np.array(p_prof[i-1:]) * units.pascal,
-                                         T_prof[i-1] * units.kelvin).magnitude[-1] + T_adjust)
-            qv_prof.append(getqv_from_thetae(T_prof[i], p_prof[i], thetae.magnitude))
-            Td_prof.append(getTd(T_prof[1], p_prof[i], qv_prof[i]))
+                                         T_prof[i-1] * units.kelvin).m[-1] + T_adjust)
+            qv_prof.append(getqv_from_thetae(T_prof[i], p_prof[i], thetae))
             
             # Update Tv
 
             Tv = getTv(T_prof[i], qv_prof[i])
 
-            z_prof.append(z_prof[i-1] + dz.magnitude)
+            z_prof.append(z_prof[i-1] + dz)
 
     # Turn lists into array
 
-    z_prof = np.array(z_prof) * units.meter
-    p_prof = np.array(p_prof) * units.pascal
-    T_prof = np.array(T_prof) * units.kelvin
+    z_prof = np.array(z_prof)
+    p_prof = np.array(p_prof)
+    T_prof = np.array(T_prof)
     qv_prof = np.array(qv_prof)
 
-    return z_prof, p_prof, T_prof, qv_prof, z_lcl
+    return z_prof, p_prof, T_prof, qv_prof
 
 
 def mccaul_weisman(z, E=2000.0, m=2.2, H=12500.0, z_trop=12000.0, RH_min=0.1, p_sfc=1e5,
@@ -1307,39 +1336,27 @@ def mccaul_weisman(z, E=2000.0, m=2.2, H=12500.0, z_trop=12000.0, RH_min=0.1, p_
     
     # Define constants
     
-    Rd = 287.04 * units.joule / units.kilogram / units.kelvin
-    g = 9.81 * units.meter / units.second / units.second
-    
-    # Add units to appease MetPy
-    
-    p_sfc = p_sfc * units.pascal
-    T_sfc = T_sfc * units.kelvin
-    z = z * units.meter
-    E = E * units.joule / units.kilogram
-    z_trop = z_trop * units.meter
-    pbl_lapse = pbl_lapse * units.kelvin / units.meter
-    crit_lapse = crit_lapse * units.kelvin / units.meter
-    thetae_pbl = thetae_pbl * units.kelvin
+    Rd = 287.04
+    g = 9.81
     
     # Initialize arrays
     
-    Tv_env_prof = np.zeros(z.shape) * units.kelvin
-    Tv_parcel_prof = np.zeros(z.shape) * units.kelvin
-    p_prof = np.zeros(z.shape) * units.pascal
+    Tv_env_prof = np.zeros(z.shape)
+    Tv_parcel_prof = np.zeros(z.shape)
+    p_prof = np.zeros(z.shape)
     qv_prof = np.zeros(z.shape)
     
     # Determine LCL height and create sub-LCL thermodynamic profile
     
     dz = z[1] - z[0]
-    z_pbl, p_pbl, T_pbl, qv_pbl, lcl_z = create_pbl(thetae_pbl, T_sfc, p_sfc, dz, 
-                                                    lapse_rate=pbl_lapse, 
-                                                    depth=pbl_depth, lr=lr)
+    z_pbl, p_pbl, T_pbl, qv_pbl = create_pbl(thetae_pbl, T_sfc, p_sfc, dz, lapse_rate=pbl_lapse, 
+                                             depth=pbl_depth, lr=lr)
     
     pbl_top_ind = z_pbl.size
     pbl_z = z_pbl[-1]
     
-    Tv_env_prof[:pbl_top_ind] = getTv(T_pbl, qv_prof[:pbl_top_ind])
-    Tv_parcel_prof[:pbl_top_ind] = getTv(DALR(T_sfc, p_pbl), qv_prof[0])
+    Tv_env_prof[:pbl_top_ind] = getTv(T_pbl, qv_pbl)
+    Tv_parcel_prof[:pbl_top_ind] = getTv(DALR(T_sfc, p_pbl), qv_pbl)
     p_prof[:pbl_top_ind] = p_pbl
     qv_prof[:pbl_top_ind] = qv_pbl
     
@@ -1350,7 +1367,7 @@ def mccaul_weisman(z, E=2000.0, m=2.2, H=12500.0, z_trop=12000.0, RH_min=0.1, p_
     
     # Determine virtual temperature profile
 
-    T_trop = -999.0 * units.kelvin
+    T_trop = -999.0
     
     p_prof[pbl_top_ind] = p_prof[pbl_top_ind-1] - ((p_prof[pbl_top_ind-1] * g * dz) / 
                                                    (Rd * Tv_env_prof[pbl_top_ind-1]))
@@ -1361,8 +1378,9 @@ def mccaul_weisman(z, E=2000.0, m=2.2, H=12500.0, z_trop=12000.0, RH_min=0.1, p_
 
             # Determine the parcel virtual temperature
 
-            p_array = np.array([p_sfc.magnitude, p_prof[i].magnitude]) * units.pascal
-            T_parcel = mc.parcel_profile(p_array, T_sfc, Td_sfc)[-1]
+            p_array = np.array([p_sfc, p_prof[i]])
+            T_parcel = mc.parcel_profile(p_array * units.pascal, T_sfc * units.kelvin, 
+                                         Td_sfc * units.kelvin).m[-1]
             qv_parcel = get_qvs(T_parcel, p_prof[i])
             Tv_parcel_prof[i] = getTv(T_parcel, qv_parcel)
 
@@ -1370,20 +1388,15 @@ def mccaul_weisman(z, E=2000.0, m=2.2, H=12500.0, z_trop=12000.0, RH_min=0.1, p_
             # Weisman 2001). Use the critical lapse rate if environmental lapse rate exceeds 
             # crit_lapse
 
-            B = (E * ((m / H) ** 2) * (z[i] - pbl_z).magnitude * 
-                 np.exp(-(m / H) * (z[i] - pbl_z).magnitude))
+            B = (E * ((m / H) ** 2) * (z[i] - pbl_z) * np.exp(-(m / H) * (z[i] - pbl_z)))
             
-            Tv_env = Tv_parcel_prof[i] / (1.0 + (B / g).magnitude)
+            Tv_env = Tv_parcel_prof[i] / (1.0 + (B / g))
             T_env = getTfromTv(Tv_env, qv_prof[i-1])
             T_env_prev = getTfromTv(Tv_env_prof[i-1], qv_prof[i-1])
             
             if ((T_env_prev - T_env) / (z[i] - z[i-1]) > crit_lapse):
-                
-                Tv_env_prof[i] = getTv((T_env_prev - (crit_lapse * (z[i] - z[i-1]))),
-                                       qv_prof[i-1])
-                
+                Tv_env_prof[i] = getTv((T_env_prev - (crit_lapse * (z[i] - z[i-1]))), qv_prof[i-1])
             else:
-                
                 Tv_env_prof[i] = Tv_env
                 
             # Compute qv by assuming that RH varies linearly from the PBL top to tropopause
@@ -1403,15 +1416,15 @@ def mccaul_weisman(z, E=2000.0, m=2.2, H=12500.0, z_trop=12000.0, RH_min=0.1, p_
             Tv_env_prof[i] = T_trop
             qv_prof[i] = getqv(RH, T_trop, p_prof[i])
 
-            p_array = np.array([p_sfc.magnitude, p_prof[i].magnitude]) * units.pascal
-            T_parcel = mc.parcel_profile(p_array, T_sfc, Td_sfc)[-1]
+            p_array = np.array([p_sfc, p_prof[i]])
+            T_parcel = mc.parcel_profile(p_array * units.pascal, T_sfc * units.kelvin, 
+                                         Td_sfc * units.kelvin).m[-1]
             qv_parcel = get_qvs(T_parcel, p_prof[i])
             Tv_parcel_prof[i] = getTv(T_parcel, qv_parcel)
 
         # Find pressure of next vertical level using hydrostatic balance
 
         if i < (z.size - 1):
-
             p_prof[i+1] = p_prof[i] - ((p_prof[i] * g * (z[i+1] - z[i])) / (Rd * Tv_env_prof[i]))
 
     # Correct the profile above the mixed layer iteratively following the procedure discussed
@@ -1419,22 +1432,22 @@ def mccaul_weisman(z, E=2000.0, m=2.2, H=12500.0, z_trop=12000.0, RH_min=0.1, p_
 
     T_env_prof = getTfromTv(Tv_env_prof, qv_prof)    
     RH_prof = getRH(T_env_prof, p_prof, qv_prof)
-    getcape_out = getcape(p_prof.magnitude, T_env_prof.magnitude, qv_prof)
-    E_t = getcape_out[0] * units.joule / units.kilogram
-    ratio = (E / E_t)
+    E_t, _, _, _, _ = getcape(p_prof, T_env_prof, qv_prof)
+    ratio = E / E_t
 
-    while (np.abs(E - E_t) > (0.5 * units.joule / units.kilogram)):
+    while (np.abs(E - E_t) > 0.5):
         
         # Compute parcel profile
         
-        T_parcel_prof = mc.parcel_profile(p_prof, T_sfc, Td_sfc)
+        T_parcel_prof = mc.parcel_profile(p_prof * units.pascal, T_sfc * units.kelvin, 
+                                          Td_sfc * units.kelvin).m
         parcel_qv = np.ones(T_parcel_prof.shape) * qv_prof[0]
         parcel_qv[pbl_top_ind:] = get_qvs(T_parcel_prof[pbl_top_ind:], p_prof[pbl_top_ind:])
         Tv_parcel_prof = getTv(T_parcel_prof, parcel_qv)
         
         # Re-compute temperature and qv profiles using E_t factor
 
-        T_trop = -999.0 * units.kelvin
+        T_trop = -999.0
 
         for i in range(pbl_top_ind, z.size):
 
@@ -1444,20 +1457,16 @@ def mccaul_weisman(z, E=2000.0, m=2.2, H=12500.0, z_trop=12000.0, RH_min=0.1, p_
                 # Weisman 2001). Use the critical lapse rate if environmental lapse rate exceeds 
                 # crit_lapse
 
-                B = (ratio * E * ((m / H) ** 2) * (z[i] - pbl_z).magnitude * 
-                     np.exp(-(m / H) * (z[i] - pbl_z).magnitude))
+                B = ratio * E * ((m / H) ** 2) * (z[i] - pbl_z) * np.exp(-(m / H) * (z[i] - pbl_z))
                 
-                Tv_env = Tv_parcel_prof[i] / (1.0 + (B / g).magnitude)
+                Tv_env = Tv_parcel_prof[i] / (1.0 + (B / g))
                 T_env = getTfromTv(Tv_env, qv_prof[i-1])
                 T_env_prev = getTfromTv(Tv_env_prof[i-1], qv_prof[i-1])
             
                 if ((T_env_prev - T_env) / (z[i] - z[i-1]) > crit_lapse):
-                
                     Tv_env_prof[i] = getTv((T_env_prev - (crit_lapse * (z[i] - z[i-1]))),
                                            qv_prof[i-1])
-                
                 else:
-                
                     Tv_env_prof[i] = Tv_env
                 
                 # Compute qv by assuming that RH varies linearly from PBL top to tropopause
@@ -1468,7 +1477,6 @@ def mccaul_weisman(z, E=2000.0, m=2.2, H=12500.0, z_trop=12000.0, RH_min=0.1, p_
             elif (z[i] > z_trop):
 
                 if T_trop < 0:
-
                     T_trop = Tv_env_prof[i-1]
 
                 Tv_env_prof[i] = T_trop
@@ -1485,21 +1493,20 @@ def mccaul_weisman(z, E=2000.0, m=2.2, H=12500.0, z_trop=12000.0, RH_min=0.1, p_
         # Re-compute E_t
 
         T_env_prof = getTfromTv(Tv_env_prof, qv_prof)
-        getcape_out = getcape(p_prof.magnitude, T_env_prof.magnitude, qv_prof)
-        E_t = getcape_out[0] * units.joule / units.kilogram
+        E_t, _, _, _, _ = getcape(p_prof, T_env_prof, qv_prof)
         ratio = ratio * (E / E_t)
     
     # Fill thermo_prof DataFrame
     
     thermo_prof = pd.DataFrame()
     
-    T_env_prof = getTfromTv(Tv_env_prof, qv_prof).to(units.kelvin).m
+    T_env_prof = getTfromTv(Tv_env_prof, qv_prof)
     
-    thermo_prof['z']   = pd.Series(z.magnitude)
-    thermo_prof['prs'] = pd.Series(p_prof.magnitude)
+    thermo_prof['z']   = pd.Series(z)
+    thermo_prof['prs'] = pd.Series(p_prof)
     thermo_prof['T']   = pd.Series(T_env_prof)
     thermo_prof['qv']  = pd.Series(qv_prof)
-    thermo_prof['Td']  = pd.Series(getTd(T_env_prof, p_prof.m, qv_prof))
+    thermo_prof['Td']  = pd.Series(getTd(T_env_prof, p_prof, qv_prof))
 
     return thermo_prof
 

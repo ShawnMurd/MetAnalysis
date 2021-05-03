@@ -92,7 +92,12 @@ def test_buoy():
 def test_getthe():
     thetae = isf.getthe(285.0, 90000.0, 0.005)
     assert thetae == pytest.approx(308.515, abs=0.005)
-   
+
+    
+def test_getLCL():
+    plcl = isf.getLCL(300., 100000., 0.01)
+    assert plcl == pytest.approx(82597.17, abs=35.)
+
 
 #---------------------------------------------------------------------------------------------------
 # Test Sounding Parameter Functions
@@ -281,12 +286,12 @@ def test_mccaul_weisman():
     # Compare T, qv, and p profiles
     
     np.testing.assert_allclose(vLFC['T'].values, truth_vLFC['T'].values, rtol=0.0075)
-    np.testing.assert_allclose(vLFC['qv'].values, truth_vLFC['qv'].values, atol=0.075e-3)
-    np.testing.assert_allclose(vLFC['prs'].values, truth_vLFC['p'].values, rtol=0.02)
+    np.testing.assert_allclose(vLFC['qv'].values, truth_vLFC['qv'].values, rtol=0.0075, atol=7.5e-5)
+    np.testing.assert_allclose(vLFC['prs'].values, truth_vLFC['p'].values, rtol=0.025)
     
     np.testing.assert_allclose(cLFC['T'].values, truth_cLFC['T'].values, rtol=0.0075)
-    np.testing.assert_allclose(cLFC['qv'].values, truth_cLFC['qv'].values, atol=0.075e-3)
-    np.testing.assert_allclose(cLFC['prs'].values, truth_cLFC['p'].values, rtol=0.02)
+    np.testing.assert_allclose(cLFC['qv'].values, truth_cLFC['qv'].values, rtol=0.0075, atol=7.5e-5)
+    np.testing.assert_allclose(cLFC['prs'].values, truth_cLFC['p'].values, rtol=0.025)
     
 
 """
