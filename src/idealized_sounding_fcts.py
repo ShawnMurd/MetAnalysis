@@ -22,10 +22,8 @@ Date Created: October 10, 2019
 import numpy as np
 import pandas as pd
 import scipy.optimize as so
+import scipy.integrate as si
 from numba import jit
-
-import metpy.calc as mc
-from metpy.units import units
 
 
 #---------------------------------------------------------------------------------------------------
@@ -374,13 +372,48 @@ def getLCL(T, p, qv):
     rh = getRH(T, p, qv)
     if rh < 1.:
         p0 = p * (rh ** (T / (1669. - 122.*rh - T)))
-        print(p0)
         plcl = so.root(funct, p0, args=(T, p, qv), tol=0.001).x[0]
     else:
         plcl = p
     
     return plcl
 
+
+def MALR(T0, p):
+    """
+    Compute pseudo-moist adiabats
+
+    Parameters
+    ----------
+    T0 : float
+        Starting temperature (K)
+    p : array
+        Pressure levels to compute parcel temperature at (Pa)
+
+    Returns
+    -------
+    T_prof : array
+        Parcel temperatures following a pseudo-moist adiabat (K)
+        
+    Notes
+    -----
+    This function follows MetPy's moist_lapse(), which is based on Bakhshaii (2013, JAMC)
+
+    """
+
+    def funct(p, T):
+        rd  = 287.04
+        rv  = 461.5
+        xlv = 2501000.
+        cp  = 1005.7
+        eps = rd / rv
+        qvs = get_qvs(T, p)
+        return (rd*T + xlv*qvs) / (p * (cp + (xlv*xlv*qvs*eps)/(rd*T*T)))
+    
+    T_prof = si.solve_ivp(funct, (p[0], p[-1]), np.array([T0]), t_eval=p).y
+    
+    return T_prof.reshape(p.size)
+        
 
 #---------------------------------------------------------------------------------------------------
 # Define Function to Compute Sounding Parameters Following getcape.F from CM1
@@ -502,8 +535,10 @@ def _lift_parcel(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0):
         Level of free convetcion (m)
     zel : float
         Equilibrium level (m)
-    B : array
+    B_all : array
         Buoyancy profile following the lifted parcel (m / s^2)
+    thv_all : array
+        Virtual potential temperature profile following the lifted parcel (K)
     
     Notes
     -----
@@ -615,11 +650,13 @@ def _lift_parcel(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0):
     else:
         ice = True
 
-    zlcl     = -1.0
-    zlfc     = -1.0
-    zel      = -1.0
-    B_all    = np.zeros(nlvl - kmax)
-    B_all[0] = B2
+    zlcl       = -1.0
+    zlfc       = -1.0
+    zel        = -1.0
+    B_all      = np.zeros(nlvl - kmax)
+    thv_all    = np.zeros(nlvl - kmax)
+    B_all[0]   = B2
+    thv_all[0] = thv2
 
     # Parcel ascent: Loop over each vertical level in sounding
 
@@ -703,6 +740,7 @@ def _lift_parcel(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0):
         B2 = g * (thv2 - thv[k]) / thv[k]
         dz = -cpdg * 0.5 * (thv[k] + thv[k-1]) * (pi[k] - pi[k-1])
         B_all[k-kmax] = B2
+        thv_all[k-kmax] = thv2
 
         if (zlcl > 0.0 and zlfc < 0.0 and B2 > 0.0):
             if B1 > 0.0:
@@ -741,10 +779,11 @@ def _lift_parcel(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0):
         if (p[k] <= 10000. and B2 <= 0.):
             break
 
-    return cape, cin, zlcl, zlfc, zel, B_all
+    return cape, cin, zlcl, zlfc, zel, B_all, thv_all
 
 
-def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0, returnB=False):
+def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0, returnB=False, 
+            returnTHV=False):
     """
     Compute various sounding parameters.
 
@@ -773,6 +812,8 @@ def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0, return
         Pressure increment for integration of hydrostatic equation (Pa)
     returnB : boolean, optional
         Option to return buoyancy profile
+    returnTHV : boolean, optional
+        Option to return virtual potential temperature profile
 
     Returns
     -------
@@ -788,6 +829,8 @@ def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0, return
         Equilibrium level (m)
     B : array
         Buoyancy profile following the lifted parcel (m / s^2)
+    thv : array
+        Virtual potential temperature profile following the lifted parcel (K)
     
     Notes
     -----
@@ -799,11 +842,15 @@ def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0, return
     """
     
     out = _lift_parcel(p, T, qv, source=source, adiabat=adiabat, ml_depth=ml_depth, pinc=pinc)
+    out = list(out)
     
-    if returnB:
-        return out
-    else:
-        return out[:-1]
+    if not returnTHV:
+        del out[6]
+    
+    if not returnB:
+        del out[5]
+    
+    return tuple(out)
 
 
 #---------------------------------------------------------------------------------------------------
@@ -1212,7 +1259,7 @@ def getqv_from_thetae(T, p, the):
     return qv  
 
 
-def create_pbl(thetae, T_sfc, p_sfc, dz, lapse_rate=0.0085, depth=None, lr=0.0001):
+def _mw_pbl(thetae, T_sfc, p_sfc, dz, lapse_rate=0.0085, depth=None, lr=0.0001):
     """
     Construct the PBL of an atmospheric sounding using a constant theta-e value and hydrostatic
     balance. Above the LCL, a constant theta-e layer with a lapse rate slightly less than the moist
@@ -1284,8 +1331,7 @@ def create_pbl(thetae, T_sfc, p_sfc, dz, lapse_rate=0.0085, depth=None, lr=0.000
 
             # Have T decrease at MALR - lr
             
-            T_prof.append(mc.moist_lapse(np.array(p_prof[i-1:]) * units.pascal,
-                                         T_prof[i-1] * units.kelvin).m[-1] + T_adjust)
+            T_prof.append(MALR(T_prof[i-1], np.array(p_prof[i-1:]))[-1] + T_adjust)
             qv_prof.append(getqv_from_thetae(T_prof[i], p_prof[i], thetae))
             
             # Update Tv
@@ -1342,27 +1388,25 @@ def mccaul_weisman(z, E=2000.0, m=2.2, H=12500.0, z_trop=12000.0, RH_min=0.1, p_
     # Initialize arrays
     
     Tv_env_prof = np.zeros(z.shape)
-    Tv_parcel_prof = np.zeros(z.shape)
     p_prof = np.zeros(z.shape)
     qv_prof = np.zeros(z.shape)
     
     # Determine LCL height and create sub-LCL thermodynamic profile
     
     dz = z[1] - z[0]
-    z_pbl, p_pbl, T_pbl, qv_pbl = create_pbl(thetae_pbl, T_sfc, p_sfc, dz, lapse_rate=pbl_lapse, 
-                                             depth=pbl_depth, lr=lr)
+    z_pbl, p_pbl, T_pbl, qv_pbl = _mw_pbl(thetae_pbl, T_sfc, p_sfc, dz, lapse_rate=pbl_lapse, 
+                                          depth=pbl_depth, lr=lr)
     
     pbl_top_ind = z_pbl.size
     pbl_z = z_pbl[-1]
     
     Tv_env_prof[:pbl_top_ind] = getTv(T_pbl, qv_pbl)
-    Tv_parcel_prof[:pbl_top_ind] = getTv(DALR(T_sfc, p_pbl), qv_pbl)
     p_prof[:pbl_top_ind] = p_pbl
     qv_prof[:pbl_top_ind] = qv_pbl
     
-    # Extract surface dewpoint and LCL relative humidity for later
+    # Extract surface water vapor mixing ratio and LCL relative humidity for later
     
-    Td_sfc = getTd(T_pbl[0], p_pbl[0], qv_pbl[0])
+    qv_sfc = qv_prof[0]
     pbl_top_rh = getRH(T_pbl[-1], p_pbl[-1], qv_pbl[-1])
     
     # Determine virtual temperature profile
@@ -1378,11 +1422,11 @@ def mccaul_weisman(z, E=2000.0, m=2.2, H=12500.0, z_trop=12000.0, RH_min=0.1, p_
 
             # Determine the parcel virtual temperature
 
-            p_array = np.array([p_sfc, p_prof[i]])
-            T_parcel = mc.parcel_profile(p_array * units.pascal, T_sfc * units.kelvin, 
-                                         Td_sfc * units.kelvin).m[-1]
-            qv_parcel = get_qvs(T_parcel, p_prof[i])
-            Tv_parcel_prof[i] = getTv(T_parcel, qv_parcel)
+            _, _, _, _, _, thv_parcel = getcape(np.array([p_sfc, p_prof[i]]), 
+                                                np.array([T_sfc, Tv_env_prof[i-1]]),
+                                                np.array([qv_sfc, qv_prof[i-1]]), 
+                                                returnTHV=True)
+            Tv_parcel = getTfromTheta(thv_parcel[-1], p_prof[i])
 
             # Determine environmental temperature using buoyancy profile (eqn A1 from McCaul and
             # Weisman 2001). Use the critical lapse rate if environmental lapse rate exceeds 
@@ -1390,7 +1434,7 @@ def mccaul_weisman(z, E=2000.0, m=2.2, H=12500.0, z_trop=12000.0, RH_min=0.1, p_
 
             B = (E * ((m / H) ** 2) * (z[i] - pbl_z) * np.exp(-(m / H) * (z[i] - pbl_z)))
             
-            Tv_env = Tv_parcel_prof[i] / (1.0 + (B / g))
+            Tv_env = Tv_parcel / (1.0 + (B / g))
             T_env = getTfromTv(Tv_env, qv_prof[i-1])
             T_env_prev = getTfromTv(Tv_env_prof[i-1], qv_prof[i-1])
             
@@ -1406,21 +1450,13 @@ def mccaul_weisman(z, E=2000.0, m=2.2, H=12500.0, z_trop=12000.0, RH_min=0.1, p_
 
         else:
             
-            # It assumed that at the tropopause, T = Tv since qv decreases with height in the 
-            # troposphere
+            # It assumed that at the tropopause, T = Tv b/c qv is small
             
             if T_trop < 0:
-
                 T_trop = Tv_env_prof[i-1]
 
             Tv_env_prof[i] = T_trop
             qv_prof[i] = getqv(RH, T_trop, p_prof[i])
-
-            p_array = np.array([p_sfc, p_prof[i]])
-            T_parcel = mc.parcel_profile(p_array * units.pascal, T_sfc * units.kelvin, 
-                                         Td_sfc * units.kelvin).m[-1]
-            qv_parcel = get_qvs(T_parcel, p_prof[i])
-            Tv_parcel_prof[i] = getTv(T_parcel, qv_parcel)
 
         # Find pressure of next vertical level using hydrostatic balance
 
@@ -1432,22 +1468,15 @@ def mccaul_weisman(z, E=2000.0, m=2.2, H=12500.0, z_trop=12000.0, RH_min=0.1, p_
 
     T_env_prof = getTfromTv(Tv_env_prof, qv_prof)    
     RH_prof = getRH(T_env_prof, p_prof, qv_prof)
-    E_t, _, _, _, _ = getcape(p_prof, T_env_prof, qv_prof)
+    E_t, _, _, _, _, thv_parcel = getcape(p_prof, T_env_prof, qv_prof, returnTHV=True)
     ratio = E / E_t
 
     while (np.abs(E - E_t) > 0.5):
         
-        # Compute parcel profile
-        
-        T_parcel_prof = mc.parcel_profile(p_prof * units.pascal, T_sfc * units.kelvin, 
-                                          Td_sfc * units.kelvin).m
-        parcel_qv = np.ones(T_parcel_prof.shape) * qv_prof[0]
-        parcel_qv[pbl_top_ind:] = get_qvs(T_parcel_prof[pbl_top_ind:], p_prof[pbl_top_ind:])
-        Tv_parcel_prof = getTv(T_parcel_prof, parcel_qv)
-        
         # Re-compute temperature and qv profiles using E_t factor
 
         T_trop = -999.0
+        Tv_parcel_prof = getTfromTheta(thv_parcel, p_prof)
 
         for i in range(pbl_top_ind, z.size):
 
@@ -1493,15 +1522,12 @@ def mccaul_weisman(z, E=2000.0, m=2.2, H=12500.0, z_trop=12000.0, RH_min=0.1, p_
         # Re-compute E_t
 
         T_env_prof = getTfromTv(Tv_env_prof, qv_prof)
-        E_t, _, _, _, _ = getcape(p_prof, T_env_prof, qv_prof)
+        E_t, _, _, _, _, thv_parcel = getcape(p_prof, T_env_prof, qv_prof, returnTHV=True)
         ratio = ratio * (E / E_t)
     
     # Fill thermo_prof DataFrame
     
     thermo_prof = pd.DataFrame()
-    
-    T_env_prof = getTfromTv(Tv_env_prof, qv_prof)
-    
     thermo_prof['z']   = pd.Series(z)
     thermo_prof['prs'] = pd.Series(p_prof)
     thermo_prof['T']   = pd.Series(T_env_prof)
