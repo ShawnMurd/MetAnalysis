@@ -742,16 +742,16 @@ def _lift_parcel(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0):
         B_all[k-kmax] = B2
         thv_all[k-kmax] = thv2
 
-        if (zlcl > 0.0 and zlfc < 0.0 and B2 > 0.0):
-            if B1 > 0.0:
-                zlfc = zlcl
-            else:
-                zlfc = z[k-1] + (z[k] - z[k-1]) * (0.0 - B1) / (B2 - B1)
+        #if (zlcl > 0.0 and zlfc < 0.0 and B2 > 0.0):
+        #    if B1 > 0.0:
+        #        zlfc = zlcl
+        #    else:
+        #        zlfc = z[k-1] + (z[k] - z[k-1]) * (0.0 - B1) / (B2 - B1)
 
         if (zlfc > 0.0 and zel < 0.0 and B2 < 0.0):
             zel = z[k-1] + (z[k] - z[k-1]) * (0.0 - B1) / (B2-B1)
 
-        # Get contributions to CAPE and CIN:
+        # Get contributions to CAPE and CIN:           
 
         if (B2 >= 0.0 and B1 < 0.0):
             # first trip into positive area
@@ -760,7 +760,9 @@ def _lift_parcel(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0):
             narea = narea - 0.5*B1*dz*(1.-frac)
             cin  = cin  + narea
             narea = 0.0
-        elif (B2 < 0.0 and B1 > 0.0):
+            if zlfc < 0.0:
+                zlfc = z[k-1] + (z[k] - z[k-1]) * (0.0 - B1) / (B2 - B1)
+        elif (B2 < 0.0 and B1 >= 0.0):
             # first trip into neg area
             frac = B1 / (B1 - B2)
             parea =  0.5*B1*dz*frac
