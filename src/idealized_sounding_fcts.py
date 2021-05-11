@@ -539,6 +539,8 @@ def _lift_parcel(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0):
         Buoyancy profile following the lifted parcel (m / s^2)
     thv_all : array
         Virtual potential temperature profile following the lifted parcel (K)
+    qv_all : array
+        Water vapor mass mixing ratio profile following the lifted parcel (kg/kg)
     
     Notes
     -----
@@ -655,8 +657,10 @@ def _lift_parcel(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0):
     zel        = -1.0
     B_all      = np.zeros(nlvl - kmax)
     thv_all    = np.zeros(nlvl - kmax)
+    qv_all     = np.zeros(nlvl - kmax)
     B_all[0]   = B2
     thv_all[0] = thv2
+    qv_all[0]  = qv2
 
     # Parcel ascent: Loop over each vertical level in sounding
 
@@ -741,6 +745,7 @@ def _lift_parcel(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0):
         dz = -cpdg * 0.5 * (thv[k] + thv[k-1]) * (pi[k] - pi[k-1])
         B_all[k-kmax] = B2
         thv_all[k-kmax] = thv2
+        qv_all[k-kmax] = qv2
 
         #if (zlcl > 0.0 and zlfc < 0.0 and B2 > 0.0):
         #    if B1 > 0.0:
@@ -781,11 +786,11 @@ def _lift_parcel(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0):
         if (p[k] <= 10000. and B2 <= 0.):
             break
 
-    return cape, cin, zlcl, zlfc, zel, B_all, thv_all
+    return cape, cin, zlcl, zlfc, zel, B_all, thv_all, qv_all
 
 
 def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0, returnB=False, 
-            returnTHV=False):
+            returnTHV=False, returnQV=False):
     """
     Compute various sounding parameters.
 
@@ -816,6 +821,8 @@ def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0, return
         Option to return buoyancy profile
     returnTHV : boolean, optional
         Option to return virtual potential temperature profile
+    returnQV : boolean, optional
+        Option to return water vapor mass mixing ratio profile
 
     Returns
     -------
@@ -833,6 +840,8 @@ def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0, return
         Buoyancy profile following the lifted parcel (m / s^2)
     thv : array
         Virtual potential temperature profile following the lifted parcel (K)
+    qv : array
+        Water vapor mass mixing ratio profile following the lifted parcel (kg/kg)
     
     Notes
     -----
@@ -845,6 +854,9 @@ def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0, return
     
     out = _lift_parcel(p, T, qv, source=source, adiabat=adiabat, ml_depth=ml_depth, pinc=pinc)
     out = list(out)
+    
+    if not returnQV:
+        del out[7]
     
     if not returnTHV:
         del out[6]
