@@ -1,10 +1,8 @@
 """
-Kinematic CM1 Functions
+Kinematic Functions
 
 Shawn Murdzek
 sfm5282@psu.edu
-Date Created: 8/10/2020
-Environment: local_py (Python 3.6)
 """
 
 #---------------------------------------------------------------------------------------------------
@@ -12,7 +10,6 @@ Environment: local_py (Python 3.6)
 #---------------------------------------------------------------------------------------------------
 
 import numpy as np
-import xarray as xr
 from numba import jit
 
 
@@ -20,23 +17,39 @@ from numba import jit
 # Functions
 #---------------------------------------------------------------------------------------------------
 
-@jit(nopython=True)
+@jit(nopython=True, cache=True)
 def circ(u, v, x1d, y1d, r, nazimuths=72):
     """
-    Compute the Eulerian circulation with radius r at each gridpoint. It is assumed that there is 
-    constant grid spacing in the x and y dimensions (z dimension can be stretched). Code here is 
-    adapted from Paul Markowski's circdist.f code.
-    Inputs:
-        u = U wind component, shape (nz, ny, nx) (m/s)
-        v = V wind component, shape (nz, ny, nx) (m/s)
-        x1d = 1D array of x coordinates (km)
-        y1d = 1D array of y coordinates (km)
-        r = Radius of Eulerian circuits (km)
-    Outputs:
-        circ = Array of circulation values (m^2/s)
-    Keywords:
-        nazimuths = Number of points used to define the circle around which C is computed (larger 
+    Compute the Eulerian circulation with radius r at each gridpoint. 
+    
+    It is assumed that there is constant grid spacing in the x and y directions (the z dimension 
+    can be stretched). 
+    
+    Parameters
+    ----------
+    u : array, float
+        Zonal wind component, shape (nz, ny, nx) (m/s)
+    v : array
+        Meridional wind component, shape (nz, ny, nx) (m/s)
+    x1d : array
+        1D array of x coordinates (km)
+    y1d : array 
+        1D array of y coordinates (km)
+    r : float
+        Radius of Eulerian circuits (km)
+    nzazimuths : float, optional
+        Number of points used to define the circle around which circulation is computed (larger 
             values are more accurate, but also increase the runtime)
+        
+    Returns
+    -------
+    circ : array 
+        Eulerian circulation (m^2/s)
+    
+    Notes
+    -----
+    Code adapted from Paul Markowski's circdist.f program
+    
     """
     
     # Determine grid spacing
@@ -94,5 +107,5 @@ def circ(u, v, x1d, y1d, r, nazimuths=72):
 
 
 """
-End cm1_kine_fcts.py
+End kine_fcts.py
 """    
