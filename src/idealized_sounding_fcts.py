@@ -765,8 +765,7 @@ def _lift_parcel(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0):
             narea = narea - 0.5*B1*dz*(1.-frac)
             cin  = cin  + narea
             narea = 0.0
-            if zlfc < 0.0:
-                zlfc = z[k-1] + (z[k] - z[k-1]) * (0.0 - B1) / (B2 - B1)
+            zlfc = z[k-1] + (z[k] - z[k-1]) * (0.0 - B1) / (B2 - B1)
         elif (B2 < 0.0 and B1 >= 0.0):
             # first trip into neg area
             frac = B1 / (B1 - B2)
