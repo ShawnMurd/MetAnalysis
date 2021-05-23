@@ -57,16 +57,25 @@ def largestArea(x):
 
 def weighted_avg_ctr(A, wgts, thres):
     """
-    Find the weighted average of A using the weights in wgts. Before computing the weighted average,
-    all weights outside the largest, contiguous area where wgts > thres are set to 0. In essence,
-    this function finds the center (using a weighted average) of the largest, contiguous area where 
-    wgts > thres.
-    Inputs:
-        A = 2D array to take average of
-        wgts = 2D array of weights
-        thres = Only compute weighted average in the largest, contiguous area where wgts > thres
-    Outputs:
+    Find the weighted average of A using the weights in wgts. 
+
+    Before computing the weighted average, all weights outside the largest, contiguous area where 
+    wgts > thres are set to 0. In essence, this function finds the center (using a weighted average) 
+    of the largest, contiguous area where wgts > thres.
+
+    Parameters
+    ----------
+        A : array 
+            2D array to take average of
+        wgts : array 
+            2D array of weights
+        thres : float 
+            Only compute weighted average in the largest, contiguous area where wgts > thres
+
+    Returns
+    -------
         Weighted-average from A
+
     """
 
     _, iind, jind = largestArea(wgts >= thres)
