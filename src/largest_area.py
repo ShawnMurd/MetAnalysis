@@ -22,13 +22,25 @@ from scipy import ndimage
 def largestArea(x):
     """
     Find the largest continguous area where x == True
+
+    Parameters
+    ----------
+        x : array 
+            2D array of boolean values
+            
+    Returns
+    -------
+        result : integer 
+            Number of grid points in the largest area within x
+        iinds_f : array
+            j indices corresponding to the grid points within the largest contiguous area in x
+        jinds_f : array
+            j indices corresponding to the grid points within the largest contiguous area in x
+
+    Notes
+    -----
     This script is partially based on Alex Schueth's SVC detection code (see Alex's MS thesis)
-    Inputs:
-        x = 2D array of boolean values
-    Outputs:
-        result = Number of grid points in largest area in x
-        iinds_f, jinds_f = Indices corresponding to the grid points within the largest contiguous 
-            area in x
+
     """
 
     # Note that anything labeled with a '0' is the background (i.e., x == False)
