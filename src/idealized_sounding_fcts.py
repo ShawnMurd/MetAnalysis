@@ -1118,7 +1118,7 @@ def param_vprof(p, T, qv, pbot, ptop, adiabat=1, ric=0, rjc=0, zc=1.5, bhrad=10.
             rh = qv / get_qvs(th * pi, p)
             qv = rh * get_qvs((th + thpert) * pi, p)
 
-        th = th * thpert
+        th = th + thpert
         T = th * pi   
  
     # Determine indices for pbot and ptop
