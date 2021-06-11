@@ -89,26 +89,36 @@ def weighted_avg_ctr(A, wgts, thres):
 
 def supercell_cent(x2d, y2d, uh, uh_thres=50, coord=[np.nan, np.nan], max_dist=10):
     """
-    Determine the centroid of a supercell using center of the largest, contiguous area where 
+    Determine the supercell centroid (proxy for midlevel mesocyclone)
+    
+    Supercell centroid is defined using the center of the largest, contiguous area where 
     uh >= uh_thres. It is assumed that uh is the 2-5 km updraft helicity, but other fields could
-    also be used.
+    also be used. If coord is not None, then the supercell centroid is forced to be within max_dist 
+    of coord. This means that the supercell centroid could actually be the second, third, etc. 
+    largest area with uh >= uh_thres.
     
-    If coord is not None, then the supercell centroid is forced to be within max_dist of coord.
-    This means that the supercell centroid could actually be the second, third, etc. largest area
-    with uh >= uh_thres.
+    Parameters
+    ----------
+        x2d : array 
+            Grid of x-coordinates (km)
+        y2d : array 
+            Grid of y-coordinates (km)
+        uh : array
+            2-5 km updraft helicity (m^2 / s^2)
+        uh_thres : float, optional
+            Updraft helicity threshold for supercell thresold (m^2 / s^2)
+        coord : array, optional
+            Coordinate of previous supercell centroid
+        max_dist : float, optional
+            Maximum distance supercell centroid can be from coord (km)
     
-    Inputs:
-        x2d = Grid of x-coordinates (km)
-        y2d = Grid of y-coordinates (km)
-        uh = 2-5 km updraft helicity
-    Outputs:
-        xcent = X-coordinate of supercell centroid (km)
-        ycent = Y-coordinate of supercell centroid (km)
-    Keywords:
-        uh_thres = Supercell centroid is defined as the center of the largest area with 
-            uh >= uh_thres
-        coord = Previous supercell centroid coordinate
-        max_dist = Maximum distance from coord that the supercell centroid can be (km)
+    Returns
+    -------
+        xcent : float
+            X-coordinate of supercell centroid (km)
+        ycent : float
+            Y-coordinate of supercell centroid (km)
+
     """
     
     xcent = np.nan
