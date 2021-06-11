@@ -32,13 +32,22 @@ from numba import jit
 
 def exner(p):
     """
-    Compute the Exner function
-    Reference:
-        Markowski and Richardson (2010) Chpt 2, footnote 8 (pg 20)
-    Inputs:
-        p = Pressure (Pa)
-    Outputs:
-        pi = Exner function (unitless)
+    Compute the Exner function (nondimensional pressure)
+
+    Parameters
+    ----------
+        p : array or float 
+            Pressure (Pa)
+    
+    Returns
+    -------
+        pi: array or float
+            Exner function (unitless)
+    
+    Notes
+    -----
+    See Markowski and Richardson (2010) Chpt 2, footnote 8 (pg 20)
+    
     """
 
     rd = 287.04
@@ -53,13 +62,23 @@ def exner(p):
 def theta(T, p):
     """
     Compute potential temperature
-    Reference:
-        Markowski and Richardson (2010) eqn 2.7
-    Inputs:
-        T = Temperature (K)
-        p = Pressure (Pa)
-    Outputs:
-        theta = Potential temperature  (K)
+
+    Parameters
+    ----------
+        T : array or float 
+            Temperature (K)
+        p : array or float 
+            Pressure (Pa)
+            
+    Returns
+    -------
+        theta : array or float 
+            Potential temperature  (K)
+            
+    Notes
+    -----
+    See Markowski and Richardson (2010) eqn (2.7)
+    
     """
     
     return T / exner(p)
@@ -96,11 +115,19 @@ def DALR(T0, p):
 def getTfromTheta(theta, p):
     """
     Compute the temperature using the potential temperature and pressure
-    Inputs:
-        theta = Potential temperature (K)
-        p = Pressure (Pa)
-    Outputs:
-        T = Temperature (K)
+    
+    Parameters
+    ----------
+        theta : array or float 
+            Potential temperature (K)
+        p : array or float 
+            Pressure (Pa)
+    
+    Returns
+    -------
+        T : array or float 
+            Temperature (K)
+            
     """
     
     return theta * exner(p)
@@ -109,15 +136,24 @@ def getTfromTheta(theta, p):
 @jit(nopython=True, cache=True)
 def get_es(T, sfc='l'):
     """
-    Compute equilibrium vapor pressure (over liquid water or ice).
-    Reference:
-        Markowski and Richardson (2010) eqn 2.16
-    Inputs:
-        T = Temperature (K)
-    Outputs:
-        e_s = Equilibrium vapor pressure over liquid water (Pa)
-    Keywords:
-        sfc = Surface over which to compute es (liquid = 'l', ice = 'i')
+    Compute equilibrium vapor pressure (over liquid water or ice)
+    
+    Parameters
+    ----------
+        T : array or float 
+            Temperature (K)
+        sfc : string, optional
+            Surface over which to compute equilibrium vapor pressure ('l' = liquid, 'i' = ice)
+    
+    Returns
+    -------
+        e_s : array or float 
+            Equilibrium vapor pressure over liquid water (Pa)
+
+    Notes
+    -----
+    See Markowski and Richardson (2010) eqn (2.16)
+    
     """
   
     T = T - 273.15
@@ -132,14 +168,22 @@ def get_es(T, sfc='l'):
 @jit(nopython=True, cache=True)
 def get_qvs(T, p, sfc='l'):
     """
-    Compute equilibrium water vapor mass mixing ratio (over liquid water or ice).
-    Inputs:
-        T = Temperature (K)
-        p = Pressure (Pa)
-    Outputs:
-        qvs = Equilibrium water vapor mass mixing ratio (kg / kg)
-    Keywords:
-        sfc = Surface over which to compute es (liquid = 'l', ice = 'i')
+    Compute equilibrium water vapor mass mixing ratio (over liquid water or ice)
+    
+    Parameters
+    ----------
+        T : array or float 
+            Temperature (K)
+        p : array or float 
+            Pressure (Pa)
+        sfc : string, optional
+            Surface over which to compute equilibrium vapor pressure ('l' = liquid, 'i' = ice)
+    
+    Returns
+    -------
+        qvs : array or float
+            Equilibrium water vapor mass mixing ratio (kg / kg)
+    
     """
 
     Rv = 461.5
@@ -153,14 +197,24 @@ def get_qvs(T, p, sfc='l'):
 
 def getTv(T, qv):
     """
-    Compute virtual tempertaure
-    Reference:
-        Markowski and Richardson (2010) eqn 2.19
-    Inputs:
-        T = Temperature (K)
-        qv = Water vapor mass mixing ratio (kg / kg)
-    Outputs:
-        Tv = Virtual potential temperature (K)
+    Compute virtual temperature
+    
+    Parameters
+    ----------
+        T : array or float 
+            Temperature (K)
+        qv : array or float 
+            Water vapor mass mixing ratio (kg / kg)
+    
+    Returns
+    -------
+        Tv : array or float 
+            Virtual potential temperature (K)
+            
+    Notes
+    -----
+    See Markowski and Richardson (2010) eqn (2.19)i
+    
     """
     
     Rv = 461.5
@@ -174,14 +228,25 @@ def getTv(T, qv):
 def thetav(T, p, qv):
     """
     Compute virtual potential temperature
-    Reference:
-        Markowski and Richardson (2010) eqn 2.20
-    Inputs:
-        T = Temperature (K)
-        p = Pressure (Pa)
-        qv = Water vapor mass mixing ratio (kg / kg)
-    Outputs:
-        thetav = Virtual potential temperature (K)
+    
+    Parameters
+    ----------
+        T : array or float 
+            Temperature (K)
+        p : array or float
+            Pressure (Pa)
+        qv : array or float 
+            Water vapor mass mixing ratio (kg / kg)
+    
+    Returns
+    -------
+        thetav : array or float 
+            Virtual potential temperature (K)
+            
+    Notes
+    -----
+    See Markowski and Richardson (2010) eqn (2.20)
+    
     """
     
     return getTv(theta(T, p), qv)
