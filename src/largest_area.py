@@ -25,17 +25,17 @@ def largestArea(x):
 
     Parameters
     ----------
-        x : array 
-            2D array of boolean values
+    x : array 
+        2D array of boolean values
             
     Returns
     -------
-        result : integer 
-            Number of grid points in the largest area within x
-        iinds_f : array
-            j indices corresponding to the grid points within the largest contiguous area in x
-        jinds_f : array
-            j indices corresponding to the grid points within the largest contiguous area in x
+    result : integer 
+        Number of grid points in the largest area within x
+    iinds_f : array
+        j indices corresponding to the grid points within the largest contiguous area in x
+    jinds_f : array
+        j indices corresponding to the grid points within the largest contiguous area in x
 
     Notes
     -----
@@ -65,16 +65,16 @@ def weighted_avg_ctr(A, wgts, thres):
 
     Parameters
     ----------
-        A : array 
-            2D array to take average of
-        wgts : array 
-            2D array of weights
-        thres : float 
-            Only compute weighted average in the largest, contiguous area where wgts > thres
+    A : array 
+        2D array to take average of
+    wgts : array 
+        2D array of weights
+    thres : float 
+        Only compute weighted average in the largest, contiguous area where wgts > thres
 
     Returns
     -------
-        Weighted-average from A
+    Weighted-average from A
 
     """
 
@@ -99,25 +99,25 @@ def supercell_cent(x2d, y2d, uh, uh_thres=50, coord=[np.nan, np.nan], max_dist=1
     
     Parameters
     ----------
-        x2d : array 
-            Grid of x-coordinates (km)
-        y2d : array 
-            Grid of y-coordinates (km)
-        uh : array
-            2-5 km updraft helicity (m^2 / s^2)
-        uh_thres : float, optional
-            Updraft helicity threshold for supercell thresold (m^2 / s^2)
-        coord : array, optional
-            Coordinate of previous supercell centroid
-        max_dist : float, optional
-            Maximum distance supercell centroid can be from coord (km)
+    x2d : array 
+        Grid of x-coordinates (km)
+    y2d : array 
+        Grid of y-coordinates (km)
+    uh : array
+        2-5 km updraft helicity (m^2 / s^2)
+    uh_thres : float, optional
+        Updraft helicity threshold for supercell thresold (m^2 / s^2)
+    coord : array, optional
+        Coordinate of previous supercell centroid
+    max_dist : float, optional
+        Maximum distance supercell centroid can be from coord (km)
     
     Returns
     -------
-        xcent : float
-            X-coordinate of supercell centroid (km)
-        ycent : float
-            Y-coordinate of supercell centroid (km)
+    xcent : float
+        X-coordinate of supercell centroid (km)
+    ycent : float
+        Y-coordinate of supercell centroid (km)
 
     """
     

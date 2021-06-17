@@ -27,7 +27,7 @@ from numba import jit
 
 
 #---------------------------------------------------------------------------------------------------
-# Define Basic Thermodynamic Functions
+# Basic Thermodynamic Functions
 #---------------------------------------------------------------------------------------------------
 
 def exner(p):
@@ -36,13 +36,13 @@ def exner(p):
 
     Parameters
     ----------
-        p : array or float 
-            Pressure (Pa)
-    
+    p : array or float 
+        Pressure (Pa)
+
     Returns
     -------
-        pi: array or float
-            Exner function (unitless)
+    pi: array or float
+        Exner function (unitless)
     
     Notes
     -----
@@ -65,15 +65,15 @@ def theta(T, p):
 
     Parameters
     ----------
-        T : array or float 
-            Temperature (K)
-        p : array or float 
-            Pressure (Pa)
+    T : array or float 
+        Temperature (K)
+    p : array or float 
+        Pressure (Pa)
             
     Returns
     -------
-        theta : array or float 
-            Potential temperature  (K)
+    theta : array or float 
+        Potential temperature  (K)
             
     Notes
     -----
@@ -118,15 +118,15 @@ def getTfromTheta(theta, p):
     
     Parameters
     ----------
-        theta : array or float 
-            Potential temperature (K)
-        p : array or float 
-            Pressure (Pa)
+    theta : array or float 
+        Potential temperature (K)
+    p : array or float 
+        Pressure (Pa)
     
     Returns
     -------
-        T : array or float 
-            Temperature (K)
+    T : array or float 
+        Temperature (K)
             
     """
     
@@ -140,15 +140,15 @@ def get_es(T, sfc='l'):
     
     Parameters
     ----------
-        T : array or float 
-            Temperature (K)
-        sfc : string, optional
-            Surface over which to compute equilibrium vapor pressure ('l' = liquid, 'i' = ice)
+    T : array or float 
+        Temperature (K)
+    sfc : string, optional
+        Surface over which to compute equilibrium vapor pressure ('l' = liquid, 'i' = ice)
     
     Returns
     -------
-        e_s : array or float 
-            Equilibrium vapor pressure over liquid water (Pa)
+    e_s : array or float 
+        Equilibrium vapor pressure over liquid water (Pa)
 
     Notes
     -----
@@ -172,17 +172,17 @@ def get_qvs(T, p, sfc='l'):
     
     Parameters
     ----------
-        T : array or float 
-            Temperature (K)
-        p : array or float 
-            Pressure (Pa)
-        sfc : string, optional
-            Surface over which to compute equilibrium vapor pressure ('l' = liquid, 'i' = ice)
+    T : array or float 
+        Temperature (K)
+    p : array or float 
+        Pressure (Pa)
+    sfc : string, optional
+        Surface over which to compute equilibrium vapor pressure ('l' = liquid, 'i' = ice)
     
     Returns
     -------
-        qvs : array or float
-            Equilibrium water vapor mass mixing ratio (kg / kg)
+    qvs : array or float
+        Equilibrium water vapor mass mixing ratio (kg / kg)
     
     """
 
@@ -201,15 +201,15 @@ def getTv(T, qv):
     
     Parameters
     ----------
-        T : array or float 
-            Temperature (K)
-        qv : array or float 
-            Water vapor mass mixing ratio (kg / kg)
+    T : array or float 
+        Temperature (K)
+    qv : array or float 
+        Water vapor mass mixing ratio (kg / kg)
     
     Returns
     -------
-        Tv : array or float 
-            Virtual potential temperature (K)
+    Tv : array or float 
+        Virtual potential temperature (K)
             
     Notes
     -----
@@ -231,17 +231,17 @@ def thetav(T, p, qv):
     
     Parameters
     ----------
-        T : array or float 
-            Temperature (K)
-        p : array or float
-            Pressure (Pa)
-        qv : array or float 
-            Water vapor mass mixing ratio (kg / kg)
+    T : array or float 
+        Temperature (K)
+    p : array or float
+        Pressure (Pa)
+    qv : array or float 
+        Water vapor mass mixing ratio (kg / kg)
     
     Returns
     -------
-        thetav : array or float 
-            Virtual potential temperature (K)
+    thetav : array or float 
+        Virtual potential temperature (K)
             
     Notes
     -----
@@ -254,12 +254,20 @@ def thetav(T, p, qv):
 
 def getTfromTv(Tv, qv):
     """
-    Compute the temperature from the virtual temperature
-    Inputs:
-        Tv = Virtual temperature (K)
-        qv = Water vapor mass mixing ratio (kg / kg)
-    Outputs:
-        T = Temperature (K)
+    Compute the temperature given a virtual temperature and water vapor mass mixing ratio
+    
+    Parameters
+    ----------
+    Tv : array or float
+        Virtual temperature (K)
+    qv : array or float 
+        Water vapor mass mixing ratio (kg / kg)
+            
+    Returns
+    -------
+    T : array or float 
+        Temperature (K)
+            
     """
     
     Rv = 461.5
@@ -273,14 +281,25 @@ def getTfromTv(Tv, qv):
 def getqv(RH, T, p):
     """
     Compute water vapor mass mixing ratio from relative humidity
-    Reference:
-        Markowski and Richardson (2010) eqn 2.14
-    Inputs:
-        RH = Relative humidity (decimal)
-        T = Temperature (K)
-        p = Pressure (Pa)
-    Outputs:
-        qv = Water vapor mass mixing ratio (kg / kg)
+    
+    Parameters
+    ----------
+    RH : array or float 
+        Relative humidity (decimal)
+    T : array or float 
+        Temperature (K)
+    p : array or float
+        Pressure (Pa)
+            
+    Returns
+    -------
+    qv : array or float 
+        Water vapor mass mixing ratio (kg / kg)
+    
+    Notes
+    -----
+    See Markowski and Richardson (2010) eqn (2.14)
+    
     """
 
     return RH * get_qvs(T, p)
@@ -292,16 +311,16 @@ def getRH(T, p, qv):
     
     Parameters
     ----------
-    RH : array
+    RH : array or float
         Relative humidity (decimal)
-    T : array
+    T : array or float
         Temperature (K)
-    p : array
+    p : array or float
         Pressure (Pa)
     
     Returns
     -------
-    qv : array 
+    qv : array or float
         Water vapor mass mixing ratio (kg / kg)
         
     Notes
@@ -320,17 +339,17 @@ def getTd(T, p, qv):
 
     Parameters
     ----------
-    T : array
-        Temperature profile (K)
-    p : array
-        Pressure profile (Pa)
-    qv : array
-        Water vapor mass mixing ratio profile (kg / kg)
+    T : array or float
+        Temperature (K)
+    p : array or float
+        Pressure (Pa)
+    qv : array or float
+        Water vapor mass mixing ratio (kg / kg)
 
     Returns
     -------
-    Td : array
-        Dewpoint profile (K)
+    Td : array or float
+        Dewpoint (K)
     
     Notes
     -----
@@ -351,17 +370,31 @@ def getTd(T, p, qv):
 def buoy(T_p, p_p, qv_p, T_env, p_env, qv_env):
     """
     Compute buoyancy
-    Reference:
-        Markowski and Richardson (2010) eqn 2.78
-    Inputs:
-        T_p = Parcel temperature (K)
-        p_p = Parcel pressure (Pa)
-        qv_p = Parcel water vapor mass mixing ratio (kg / kg)
-        T_env = Environmental temperature (K)
-        p_env = Environmental pressure (Pa)
-        qv_env = Environmental water vapor mass mixing ratio (kg / kg)
-    Outputs:
-        B = Buoyancy (m / s^2)
+    
+    Parameters
+    ----------
+    T_p : array or float
+        Parcel temperature (K)
+    p_p : array or float 
+        Parcel pressure (Pa)
+    qv_p : array or float
+        Parcel water vapor mass mixing ratio (kg / kg)
+    T_env : array or float 
+        Environmental temperature (K)
+    p_env : array or float
+        Environmental pressure (Pa)
+    qv_env : array or float 
+        Environmental water vapor mass mixing ratio (kg / kg)
+    
+    Returns
+    -------
+    B : array or float 
+        Buoyancy (m / s^2)
+    
+    Notes
+    -----
+    See Markowski and Richardson (2010) eqn (2.78)
+    
     """
     
     g = 9.81
@@ -381,28 +414,25 @@ def getthe(T, p, qv):
 
     Parameters
     ----------
-    T : array
-        Temperature profile (K)
-    p : array
-        Pressure profile (Pa)
-    qv : array
-        Water vapor mass mixing ratio profile (kg / kg)
+    T : array or float
+        Temperature (K)
+    p : array or float
+        Pressure (Pa)
+    qv : array or float
+        Water vapor mass mixing ratio (kg / kg)
 
     Returns
     -------
-    the : array
+    the : array or float
         Pseudoequivalent potential temperature (K)
 
     """
     
     # Compute LCL temperature
-    
     Td = getTd(T, p, qv)
-    
     Tlcl = 56. + 1. / (1. / (Td - 56.0) + 0.00125 * np.log(T / Td))
         
     # Compute theta-ep
-    
     the = (T * (100000. / p) ** (0.2854 * (1. - 0.28 * qv)) * 
            np.exp(((3376. / Tlcl) - 2.54) * qv * (1. + 0.81 * qv)))
            
@@ -427,12 +457,14 @@ def getLCL(T, p, qv):
     plcl : float
         LCL pressure (Pa)
 
+    Notes
+    -----
+    LCL initial guess comes from Kerry Emanuel's calcsound program
+
     """
     
     def funct(p, T0=300., p0=100000., qv0=0.001):
         return qv0 - get_qvs(DALR(T, np.array([p0, p]))[-1], p)
-    
-    # Initial guess (from the LCL formula in Kerry Emanuel's calcsound program)
     
     rh = getRH(T, p, qv)
     if rh < 1.:
@@ -481,25 +513,33 @@ def MALR(T0, p):
         
 
 #---------------------------------------------------------------------------------------------------
-# Define Function to Compute Sounding Parameters Following getcape.F from CM1
+# Functions to Compute Sounding Parameters Following getcape.F from CM1
 #---------------------------------------------------------------------------------------------------
 
 @jit(nopython=True, cache=True)
 def sounding_pressure(z, th, qv, p0):
     """
-    Computes the pressure profile for the given height, temperature, and water vapor mixing ratio
-    profile using an upward integration of the hydrostatic balance equation.
-    Inputs:
-        z = Sounding heights (m)
-        th = Sounding potential temperatures (K)
-        qv = Sounding water vapor mass mixing ratios (kg / kg)
-        p0 = Pressure corresponding to z[0] (Pa)
-    Outputs:
-        p = Sounding pressure (Pa)
+    Computes the pressure profile using an upward integration of the hydrostatic balance equation
+    
+    Parameters
+    ----------
+    z : array 
+        Sounding heights (m)
+    th : array
+        Sounding potential temperatures (K)
+    qv : array 
+        Sounding water vapor mass mixing ratios (kg / kg)
+    p0 : float 
+        Pressure corresponding to z[0] (Pa)
+        
+    Returns
+    -------
+    p : array 
+        Sounding pressure (Pa)
+        
     """
 
     # Define constants
-
     reps = 461.5 / 287.04
     rd = 287.04
     cp = 1005.7
@@ -507,13 +547,11 @@ def sounding_pressure(z, th, qv, p0):
     g = 9.81
 
     # Compute Exner function and virtual potential temperature
-
     pi = np.zeros(z.shape)
     pi[0] = (p0 / p00) ** (rd / cp)
     thv = th * (1.0 + (reps * qv)) / (1.0 + qv)
 
     # Integrate hydrostatic equation upward from surface
-
     for i in range(1, z.size):
         pi[i] = pi[i-1] - g * (z[i] - z[i-1]) / (cp * 0.5 * (thv[i] + thv[i-1]))
 
@@ -525,19 +563,27 @@ def sounding_pressure(z, th, qv, p0):
 @jit(nopython=True, cache=True)
 def sounding_height(p, th, qv, z0):
     """
-    Computes the height profile for the given pressure, temperature, and water vapor mixing ratio
-    profile using an upward integration of the hydrostatic balance equation.
-    Inputs:
-        p = Sounding pressures (Pa)
-        th = Sounding potential temperatures (K)
-        qv = Sounding water vapor mass mixing ratios (kg / kg)
-        z0 = Height corresponding to p[0] (m)
-    Outputs:
-        z = Sounding heights (m)
+    Computes the height profile using an upward integration of the hydrostatic balance equation
+    
+    Parameters
+    ----------
+    p : array 
+        Sounding pressures (Pa)
+    th : array 
+        Sounding potential temperatures (K)
+    qv : array 
+        Sounding water vapor mass mixing ratios (kg / kg)
+    z0 : float
+        Height corresponding to p[0] (m)
+        
+    Returns
+    -------
+    z : array 
+        Sounding heights (m)
+        
     """
 
     # Define constants
-
     reps = 461.5 / 287.04
     rd = 287.04
     cp = 1005.7
@@ -545,12 +591,10 @@ def sounding_height(p, th, qv, z0):
     cpdg = cp / g
 
     # Compute Exner function and virtual potential temperature
-
     pi = (p / 100000.0) ** (rd / cp)
     thv = th * (1.0 + (reps * qv)) / (1.0 + qv)
 
     # Integrate hydrostatic equation upward from surface
-
     z = np.zeros(p.shape)
     z[0] = z0
     for i in range(1, p.size):
@@ -562,7 +606,7 @@ def sounding_height(p, th, qv, z0):
 @jit(nopython=True, cache=True)
 def _lift_parcel(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0, z0=0.0):
     """
-    Compute various sounding parameters.
+    Compute various sounding parameters
 
     Parameters
     ----------
@@ -617,7 +661,6 @@ def _lift_parcel(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0, z
     """
 
     # Define constants
-
     g     = 9.81
     p00   = 100000.0
     cp    = 1005.7
@@ -643,7 +686,6 @@ def _lift_parcel(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0, z
     nlvl = p.shape[0]
 
     # Compute derived quantities
-    
     pi = (p*rp00) ** rddcp
     th = T / pi
     thv = th * (1. + reps*qv) / (1. + qv)
@@ -858,7 +900,7 @@ def _lift_parcel(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0, z
 def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0, returnB=False, 
             returnTHV=False, returnQTOT=False, z0=0.0):
     """
-    Compute various sounding parameters.
+    Compute various sounding parameters
 
     Parameters
     ----------
@@ -937,40 +979,48 @@ def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0, return
 
 
 #---------------------------------------------------------------------------------------------------
-# Define Function to Print Environmental Parameters
+# Function to Print Environmental Parameters
 #---------------------------------------------------------------------------------------------------
 
 def print_env_param(T, p, qv, print_results=True, adiabat=1):
     """
-    Print various thermodynamic environmental parameters (e.g., CAPE, CIN, LFC) using getcape.
-    Inputs:
-        T = Environmental temperature profile (K)
-        p = Environmental pressure profile (Pa)
-        qv = Environmental water vapor mixing ratio profile (kg / kg)
-    Outputs:
-        param_dict = Dictionary containing the same environmental parameters printed to the screen
-    Keywords:
-        print_results = Option to print parameters
-        adiabat = Adiabat option for getcape
+    Print various thermodynamic environmental parameters (e.g., CAPE, CIN, LFC) using getcape
+    
+    Parameters
+    ----------
+    T : array 
+        Environmental temperature profile (K)
+    p : array 
+        Environmental pressure profile (Pa)
+    qv : array 
+        Environmental water vapor mixing ratio profile (kg / kg)
+    print_results : boolean, optional
+        Option to print parameters to the screen
+    adiabat : integer, optional
+        Parcel adiabat for getcape
             1: Pseudoadiabatic, liquid only
             2: Reversible, liquid only
             3: Pseudoadiabatic, with ice
             4: Reversible, with ice
+        
+    Returns
+    -------
+    param_dict : dictionary 
+        Various environmental parameters
+
     """
-    
-    # Compute sounding parameters using getcape and fill param_dict
     
     param_dict = {}
     params = ['CAPE', 'CIN', 'LCL', 'LFC', 'EL']
     units = ['J / kg', 'J / kg', 'm', 'm', 'm']
-    
+
+    # Compute sounding parameters using getcape    
     for src in ['sfc', 'mu', 'ml']:
         out = getcape(p, T, qv, source=src, adiabat=adiabat)
         for j, param in enumerate(params):
             param_dict[src + param] = out[j]
     
-    # Print results to screen
-    
+    # Print results to screen    
     if print_results:
         for src in ['sfc', 'mu', 'ml']:
             for k, (param, u) in enumerate(zip(params, units)):
@@ -981,27 +1031,34 @@ def print_env_param(T, p, qv, print_results=True, adiabat=1):
 
 
 #---------------------------------------------------------------------------------------------------
-# Define Functions Related to Vertical Profiles of Sounding Parameters
+# Functions Related to Vertical Profiles of Sounding Parameters
 #---------------------------------------------------------------------------------------------------
 
 def cm1_snd_helper(cm1_sounding):
     """
     Extracts the temperature, water vapor mass mixing ratio, pressure, height, and wind profiles 
-    from a CM1 input sounding file.
-    Inputs:
-        cm1_sounding = CM1 input sounding file
-    Outputs:
-        out_df = DataFrame with:
-            temperature (K)
-            water vapor mass mixing ratio (kg / kg)
-            pressure (Pa)
-            height (m)
-            u wind component (m / s)
-            v wind component (m / s)
+    from a CM1 input sounding file
+    
+    Parameters
+    ----------
+    cm1_sounding : string 
+        CM1 input sounding file
+    
+    Returns
+    -------
+    out_df : pd.DataFrame
+        CM1 input sounding. Includes:
+            T : temperature (K)
+            th : potential temperature (K)
+            qv : water vapor mass mixing ratio (kg / kg)
+            p : pressure (Pa)
+            z : height (m)
+            u : u wind component (m / s)
+            v : v wind component (m / s)
+            
     """
 
     # Extract data from cm1_sounding
-
     sounding = pd.read_csv(cm1_sounding, delim_whitespace=True, header=None,
                            names=['z', 'theta', 'qv', 'u', 'v'], skiprows=1)
 
@@ -1018,12 +1075,10 @@ def cm1_snd_helper(cm1_sounding):
     fptr.close()
 
     # Compute pressure and temperature profile
-
     p = sounding_pressure(z, th, qv, p0)
     T = getTfromTheta(th, p)
 
     # Create output DataFrame
-
     out_df = pd.DataFrame({'T':T, 'th':th, 'qv':qv, 'p':p, 'z':z, 'u':u, 'v':v})
 
     return out_df
@@ -1031,24 +1086,31 @@ def cm1_snd_helper(cm1_sounding):
 
 def create_calcsound_input(p, T, qv, fname):
     """
-    Create input .dat file for Kerry Emanuel's calcsound program.
-    Inputs:
-        p = Pressure (Pa)
-        T = Temperature (K)
-        qv = Water vapor mass mixing ratio (kg / kg)
-        fname = File to save calcsound input file to (including path)
-    Outputs:
-        None, creates input file in the directory specified by path
+    Create input .dat file for Kerry Emanuel's calcsound program
+    
+    Parameters
+    ----------
+    p : array 
+        Pressure (Pa)
+    T : array 
+        Temperature (K)
+    qv : array 
+        Water vapor mass mixing ratio (kg / kg)
+    fname : string 
+        File to save calcsound input file to (including path)
+        
+    Returns
+    --------
+        None, creates input file in the directory specified by fname
+        
     """
 
     # Put thermodynamic variables in correct units
-
     p = p * 0.01
     T = T - 273.15
     qv = qv * 1000
 
     # Write results to input file
-
     fptr = open(fname, 'w')
     fptr.write('  N= %d\n' % len(p))
     fptr.write('   Pressure (mb)     Temperature (C)     Mixing Ratio (g/kg)\n')
@@ -1063,11 +1125,18 @@ def create_calcsound_input(p, T, qv, fname):
 
 def calcsound_out_to_df(out):
     """
-    Read in a .out file from Kerry Emanuel's calcsound program as a pandas DataFrame.
-    Inputs:
-        out = Output file from Kerry Emanuel's calcsound program
-    Outputs:
-        out_df = DataFrame containing information from out
+    Read in a .out file from Kerry Emanuel's calcsound program as a pandas DataFrame    
+    
+    Parameters
+    ----------
+    out : string 
+        Name of an output file from Kerry Emanuel's calcsound program
+        
+    Returns
+    -------
+    out_df : pd.DataFrame 
+        DataFrame with information from out
+        
     """
 
     # Read in output file
@@ -1102,27 +1171,41 @@ def calcsound_out_to_df(out):
 
 def effect_inflow(p, T, qv, min_cape=100, max_cin=250, adiabat=1):
     """
-    Determine the effective inflow layer using the empirical definition of Thompson et al. 
-    (2007, WAF).
-    Inputs:
-        p = Pressure (Pa)
-        T = Temperature (K)
-        qv = Water vapor mass mixing ratio (kg / kg)
-    Outputs:
-        p_top = Pressure at top of effective inflow layer (Pa)
-        p_bot = Pressure at bottom of effective inflow layer (Pa)
-    Keywords:
-        min_cape = Minimum amount of CAPE a parcel must have to be in the inflow layer (J / kg)
-        max_cin = Maximum amount of CIN a parcel can have to be in the inflow layer (J / kg)
-        adiabat = Adiabat option for getcape
+    Compute the effective inflow layer (EIL)
+    
+    Parameters
+    ----------
+    p : array 
+        Pressure (Pa)
+    T : array 
+        Temperature (K)
+    qv : array 
+        Water vapor mass mixing ratio (kg / kg)
+    min_cape : float, optional
+        CAPE threshold for EIL
+    max_cin : float, optional
+        CIN threshold for EIL
+    adiabat : integer, optional
+        Parcel adiabat for getcape:
             1: Pseudoadiabatic, liquid only
             2: Reversible, liquid only
             3: Pseudoadiabatic, with ice
             4: Reversible, with ice
+            
+    Returns
+    -------
+    p_top : float 
+        Pressure at top of EIL (Pa)
+    p_bot : float 
+        Pressure at bottom of EIL (Pa)
+            
+    Notes
+    -----
+    EIL definition comes from Thompson et al. (2007, WAF)
+    
     """
     
     # Determine bottom of effective inflow layer
-    
     i = 0
     cape, cin, _, _, _ = getcape(p[i:], T[i:], qv[i:], adiabat=adiabat)
     while (cape < min_cape) or (cin > max_cin):
@@ -1131,7 +1214,6 @@ def effect_inflow(p, T, qv, min_cape=100, max_cin=250, adiabat=1):
     p_bot = p[i]
     
     # Determine top of effective inflow layer
-    
     while (cape > min_cape) and (cin < max_cin):
         cape, cin, _, _, _ = getcape(p[i:], T[i:], qv[i:], adiabat=adiabat)
         i = i + 1
@@ -1143,29 +1225,46 @@ def effect_inflow(p, T, qv, min_cape=100, max_cin=250, adiabat=1):
 def param_vprof(p, T, qv, pbot, ptop, adiabat=1, ric=0, rjc=0, zc=1.5, bhrad=10.0, bvrad=1.5,
                 bptpert=0.0, maintain_rh=False, xloc=0.0, yloc=0.0, z0=0):
     """
-    Compute vertical profiles of sounding parameters (CAPE, CIN, LFC, LCL, EL) as well as vertical
-    profiles of parcel buoyancy.
-    Inputs:
-        p = Pressure (Pa)
-        T = Temperature (K)
-        qv = Water vapor mass mixing ratio (kg / kg)
-        pbot = Bottom of layer to compute sounding parameters (Pa)
-        ptop = Top of layer to compute sounding parameters (Pa)
-    Outputs:
-        param_df = Sounding parameters dictionary
-        B = 2D array of parcel buoyancies (m / s^2)
-    Keywords:
-        adiabat = Adiabat option for getcape
+    Compute vertical profiles of sounding parameters and vertical profiles of parcel buoyancy
+    
+    Parameters
+    ----------
+    p : array 
+        Pressure (Pa)
+    T : array 
+        Temperature (K)
+    qv : array 
+        Water vapor mass mixing ratio (kg / kg)
+    pbot : float 
+        Bottom of layer to compute sounding parameters (Pa)
+    ptop : float 
+        Top of layer to compute sounding parameters (Pa)
+    adiabat : integer, optional 
+        Parcel adiabat for getcape:
             1: Pseudoadiabatic, liquid only
             2: Reversible, liquid only
             3: Pseudoadiabatic, with ice
             4: Reversible, with ice
-        ric, rjc, zc = Center of initiating warm bubble (km)
-        bhrad, bvrad = Horizontal and vertical radius of initiating warm bubble (K)
-        bptpert = Warm buble perturbation (set to 0 to plot parameters without warm bubble) (K)
-        maintain_rh = Keep constant RH in initiating warm bubble
-        xloc, yloc = Horizontal location of vertical profile (km)
-        z0 = Height of p[0] (only needed if bptpert > 0) (m)
+    ric, rjc, zc : floats, optional 
+        Center of initiating warm bubble (km)
+    bhrad, bvrad : floats, optional 
+        Horizontal and vertical radius of initiating warm bubble (K)
+    bptpert : float, optional 
+        Warm buble perturbation (set to 0 to plot parameters without warm bubble) (K)
+    maintain_rh : boolean, optional 
+        Keep constant RH in initiating warm bubble
+    xloc, yloc : floats, optional 
+        Horizontal location of vertical profile (km)
+    z0 : float, optional 
+        Height of p[0] (only needed if bptpert > 0) (m)
+        
+    Returns
+    -------
+    param_df : pd.DataFrame 
+        Sounding parameters dictionary
+    B : array 
+        2D array of parcel buoyancies (m / s^2)
+
     """
    
     # Add initiating warm bubble
@@ -1223,31 +1322,47 @@ def param_vprof(p, T, qv, pbot, ptop, adiabat=1, ric=0, rjc=0, zc=1.5, bhrad=10.
 
 
 #---------------------------------------------------------------------------------------------------
-# Add Weisman-Klemp Analytic Thermodynamic Sounding
+# Weisman-Klemp Analytic Thermodynamic Sounding
 #---------------------------------------------------------------------------------------------------
 
 def weisman_klemp(z, qv0=0.014, theta0=300.0, p0=100000.0, z_tr=12000.0, theta_tr=343.0, T_tr=213.0, 
                   cm1_out=None):
     """
     Create an analytic thermodynamic profile following the methodology of Weisman and Klemp 
-    (1982, MWR) [hereafter WK82]. Implementation follows base.F from George Bryan's cm1r20.1.
-    Inputs:
-        z = Vertical levels used to compute thermodynamic profile (m)
-    Outputs:
-        snd_df = DataFrame with:
-            temperature (K)
-            water vapor mass mixing ratio (kg / kg)
-            pressure (Pa)
-            height (m)
-    Keywords:
-        qv0 = Surface water vapor mass mixing ratio (kg / kg)
-        theta0 = Surface potential temperature (K)
-        p0 = Surface pressure (Pa)
-        z_tr = Tropopause height (m)
-        theta_tr = Tropopause potential temperature (K)
-        T_tr = Tropopause temperature (K)
-        cm1_out = CM1 output text file to save sounding to (set to None to not create an output 
-            file)
+    (1982, MWR) [hereafter WK82]
+    
+    Parameters
+    ----------
+    z : array 
+        Vertical levels used to compute thermodynamic profile (m)
+    qv0 : float, optional
+        Surface water vapor mass mixing ratio (kg / kg)
+    theta0 : float, optional 
+        Surface potential temperature (K)
+    p0 : float, optional 
+        Surface pressure (Pa)
+    z_tr : float, optional 
+        Tropopause height (m)
+    theta_tr : float, optional 
+        Tropopause potential temperature (K)
+    T_tr : float, optional 
+        Tropopause temperature (K)
+    cm1_out : string, optional 
+        CM1 output text file to save sounding to (set to None to not create an output file)
+        
+    Returns
+    -------
+    snd_df : pd.DataFrame
+        WK82 sounding
+            T : temperature (K)
+            qv : water vapor mass mixing ratio (kg / kg)
+            p : pressure (Pa)
+            z : height (m)
+        
+    Notes
+    -----
+    Implementation follows base.f from George Bryan's CM1r20.1
+    
     """
 
     # Define constants
@@ -1346,21 +1461,40 @@ def _mw_pbl(thetae, T_sfc, p_sfc, dz, lapse_rate=0.0085, depth=None, lr=0.0001):
     """
     Construct the PBL of an atmospheric sounding using a constant theta-e value and hydrostatic
     balance. Above the LCL, a constant theta-e layer with a lapse rate slightly less than the moist
-    adiabatic lapse rate is used (similar to McCaul and Cohen 2002).
-    Inputs:
-        thetae = Constant equivalent potential temperature values in the PBL (K)
-        T_sfc = Surface temperature (K)
-        p_sfc = Surface pressure (Pa)
-        dz = Vertical grid spacing (m)
-    Outputs:
-        z_prof = 1D array of heights in the sub-LCL layer (m)
-        p_prof = 1D array of pressures in the sub-LCL layer (Pa)
-        T_prof = 1D array of temperatures in the sub-LCL layer (K)
-        qv_prof = 1D array of water vapor mass mixing ratios in the sub-LCL layer (kg / kg)
-    Keywords:
-        lapse_rate = PBL lapse rate (K / m)
-        depth = Height of PBL (m). If None, PBL is terminated at LCL
-        lr = Lapse rate in LFC-LCL layer is equal to the MALR - lr (K / m)
+    adiabatic lapse rate is used.
+    
+    Parameters
+    ----------
+    thetae : float 
+        Constant equivalent potential temperature values in the PBL (K)
+    T_sfc : float 
+        Surface temperature (K)
+    p_sfc : float 
+        Surface pressure (Pa)
+    dz : float 
+        Vertical grid spacing (m)
+    lapse_rate : float, optional 
+        PBL lapse rate (K / m)
+    depth : float, optional 
+        Height of PBL (m). If None, PBL is terminated at LCL
+    lr : float, optional 
+        Lapse rate in LFC-LCL layer is equal to the MALR - lr (K / m)
+    
+    Returns
+    -------
+    z_prof : array 
+        PBL heights (m)
+    p_prof : array 
+        PBL pressures (Pa)
+    T_prof : array 
+        PBL temperatures (K)
+    qv_prof : array 
+        PBL water vapor mass mixing ratios (kg / kg)
+        
+    Notes
+    -----
+    General methodology here loosely follows McCaul and Cohen (2002, MWR)
+    
     """
 
     # Define constants
@@ -1438,29 +1572,52 @@ def mccaul_weisman(z, E=2000.0, m=2.2, H=12500.0, z_trop=12000.0, RH_min=0.1, p_
                    pbl_depth=None, lr=0.0001):
     """
     Create an analytic thermodynamic profile following the method in the appendix of McCaul and 
-    Weisman (2001) and using the algorithm written by Paul Markowski in saminit.f. Unlike McCaul and 
-    Weisman (2001), the thermodynamic profile created by this function features relative humidity 
-    values in the free troposphere that decrease linearly with height (similar to Warren et al. 
-    2017). The virtual temperature correction is used when computing CAPE in this function.
-    Inputs:
-        z = Heights AGL to provide thermodynamic profile data (m)
-    Outputs:
-        thermo_prof = Pandas DataFrame containing the height (m), pressure (Pa), potential 
-            temperature (K), water vapor mixing ratio (kg / kg), temperature (K), and 
-            dewpoint (K)
-    Keywords:
-        E = Tv-corrected CAPE value (J / kg)
-        m = Buoyancy profile compression parameter
-        H = Vertical scale (m)
-        z_trop = Height of tropopause (m)
-        RH_min = Minimum RH at tropopause (decimal)
-        p_sfc = Pressure at the surface (Pa)
-        T_sfc = Temperature at the surface (K)
-        thetae_pbl = Constant theta-e in PBL (K)
-        pbl_lapse = Lapse rate below LCL (K / m)
-        crit_lapse = Lapse rates greater than crit_lapse are set to the PBL lapse rate (K / m)
-        pbl_depth = PBL depth (m). Set to None to use the LCL as the PBL top
-        lr = Lapse rate in LCL-LFC layer is the MALR - lr (K / m)
+    Weisman (2001, MWR)
+    
+    Parameters
+    ----------
+    z : array 
+        Sounding vertical levels (m AGL)
+    E : float, optional
+        Tv-corrected CAPE value (J / kg)
+    m : float, optional 
+        Buoyancy profile compression parameter
+    H : float, optional 
+        Vertical scale (m)
+    z_trop : float, optional 
+        Height of tropopause (m)
+    RH_min : float, optional 
+        Minimum RH at tropopause (decimal)
+    p_sfc : float, optional 
+        Pressure at the surface (Pa)
+    T_sfc : float, optional 
+        Temperature at the surface (K)
+    thetae_pbl : float, optional 
+        Constant theta-e in PBL (K)
+    pbl_lapse : float, optional 
+        Lapse rate below LCL (K / m)
+    crit_lapse : float, optional 
+        Lapse rates greater than crit_lapse are set to the PBL lapse rate (K / m)
+    pbl_depth : float, optional
+        PBL depth (m). Set to None to use the LCL as the PBL top
+    lr : float, optional 
+        Lapse rate in LCL-LFC layer is the MALR - lr (K / m)
+        
+    Returns
+    -------
+    thermo_prof : pd.DataFrame
+        MW01 sounding
+            z : height (m)
+            prs : pressure (Pa)
+            qv : water vapor mixing ratio (kg / kg)
+            T : temperature (K) 
+            Td : dewpoint (K)
+        
+    Notes
+    -----
+    Algorithm loosely follows Paul Markowski's saminit.f with modifications to the original
+    methodology as outlined in Warren et al. (2017, MWR)
+    
     """
     
     # Define constants
