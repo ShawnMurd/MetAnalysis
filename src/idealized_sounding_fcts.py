@@ -560,7 +560,7 @@ def sounding_height(p, th, qv, z0):
 
 
 @jit(nopython=True, cache=True)
-def _lift_parcel(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0):
+def _lift_parcel(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0, z0=0.0):
     """
     Compute various sounding parameters.
 
@@ -587,6 +587,8 @@ def _lift_parcel(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0):
         Mixed-layer depth for source = 'ml' (m)
     pinc : float, optional
         Pressure increment for integration of hydrostatic equation (Pa)
+    z0 : float, optional
+        Height corresponding to the first pressure level (m AGL)
 
     Returns
     -------
@@ -645,7 +647,7 @@ def _lift_parcel(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0):
     pi = (p*rp00) ** rddcp
     th = T / pi
     thv = th * (1. + reps*qv) / (1. + qv)
-    z = sounding_height(p, th, qv, 0.0)
+    z = sounding_height(p, th, qv, z0)
 
     # Determine initial parcel location
 
@@ -854,7 +856,7 @@ def _lift_parcel(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0):
 
 
 def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0, returnB=False, 
-            returnTHV=False, returnQTOT=False):
+            returnTHV=False, returnQTOT=False, z0=0.0):
     """
     Compute various sounding parameters.
 
@@ -887,6 +889,8 @@ def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0, return
         Option to return virtual potential temperature profile
     returnQTOT : boolean, optional
         Option to return total water mass mixing ratio profile
+    z0 : float, optional
+        Height corresponding to the first pressure level (m AGL)
 
     Returns
     -------
@@ -916,7 +920,8 @@ def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0, return
     
     """
     
-    out = _lift_parcel(p, T, qv, source=source, adiabat=adiabat, ml_depth=ml_depth, pinc=pinc)
+    out = _lift_parcel(p, T, qv, source=source, adiabat=adiabat, ml_depth=ml_depth, pinc=pinc, 
+                       z0=z0)
     out = list(out)
     
     if not returnQTOT:
