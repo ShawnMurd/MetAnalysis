@@ -27,7 +27,7 @@ def circ(u, v, x1d, y1d, r, nazimuths=72):
     
     Parameters
     ----------
-    u : array, float
+    u : array
         Zonal wind component, shape (nz, ny, nx) (m/s)
     v : array
         Meridional wind component, shape (nz, ny, nx) (m/s)
@@ -103,7 +103,7 @@ def circ(u, v, x1d, y1d, r, nazimuths=72):
             dl_mag = 2. * np.pi * r * 1.0e3 / nazimuths
             circ[:, j, i] = sumVt * dl_mag
             
-    return circ   
+    return circ
 
 
 """
