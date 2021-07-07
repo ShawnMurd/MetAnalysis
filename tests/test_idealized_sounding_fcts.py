@@ -202,13 +202,18 @@ def test_effect_inflow():
 
     # Compute effective inflow layer
 
-    p_top1, p_bot1 = isf.effect_inflow(p, T, qv)
-    p_top2, p_bot2 = isf.effect_inflow(p, T, qv, min_cape=100, max_cin=30)
+    p_top1, p_bot1, i_top1, i_bot1 = isf.effect_inflow(p, T, qv)
+    p_top2, p_bot2, i_top2, i_bot2 = isf.effect_inflow(p, T, qv, min_cape=100, max_cin=30)
 
     assert p_top1 == pytest.approx(68147.65, 0.1)
     assert p_top2 == pytest.approx(68147.65, 0.1)
     assert p_bot1 == pytest.approx(99437.76, 0.1)
     assert p_bot2 == pytest.approx(95014.45, 0.1)
+    
+    assert i_top1 == np.where(p_top1 == p)[0][0]
+    assert i_bot1 == np.where(p_bot1 == p)[0][0]
+    assert i_top2 == np.where(p_top2 == p)[0][0]
+    assert i_bot2 == np.where(p_bot2 == p)[0][0]
 
 
 def test_param_vprof():

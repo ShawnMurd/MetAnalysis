@@ -1235,6 +1235,10 @@ def effect_inflow(p, T, qv, min_cape=100, max_cin=250, adiabat=1):
         Pressure at top of EIL (Pa)
     p_bot : float 
         Pressure at bottom of EIL (Pa)
+    i_top : integer 
+        Index corresponding to EIL top
+    i_bot : integer
+        Index corresponding to EIL bottom
             
     Notes
     -----
@@ -1248,15 +1252,17 @@ def effect_inflow(p, T, qv, min_cape=100, max_cin=250, adiabat=1):
     while (cape < min_cape) or (cin > max_cin):
         cape, cin, _, _, _ = getcape(p[i:], T[i:], qv[i:], adiabat=adiabat)
         i = i + 1
-    p_bot = p[i]
+    i_bot = i
+    p_bot = p[i_bot]
     
     # Determine top of effective inflow layer
     while (cape > min_cape) and (cin < max_cin):
         cape, cin, _, _, _ = getcape(p[i:], T[i:], qv[i:], adiabat=adiabat)
         i = i + 1
-    p_top = p[i]
+    i_top = i
+    p_top = p[i_top]
     
-    return p_top, p_bot
+    return p_top, p_bot, i_top, i_bot
 
 
 def param_vprof(p, T, qv, pbot, ptop, adiabat=1, ric=0, rjc=0, zc=1.5, bhrad=10.0, bvrad=1.5,
