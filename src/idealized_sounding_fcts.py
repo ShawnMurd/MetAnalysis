@@ -513,6 +513,43 @@ def MALR(T0, p):
         
 
 #---------------------------------------------------------------------------------------------------
+# Composite Parameters
+#---------------------------------------------------------------------------------------------------
+
+def stp(cape, srh, bwd, lcl, cin):
+    """
+    Compute significant tornado parameter (STP)
+
+    Parameters
+    ----------
+    cape : float
+        Convective available potential energy (J / kg)
+    srh : float
+        Storm-relative helicity (m^2 / s^2)
+    bwd : float
+        Bulk wind difference (m / s)
+    lcl : float
+        Lifting condensation level (m)
+    cin : float
+        Convective inhibition (positive number, J / kg)
+
+    Returns
+    -------
+    stp : float
+        Significant tornado parameter (unitless)
+
+    """
+    
+    if (lcl >= 2000.) or (srh <= 0.):
+        stp = 0.
+    else:
+        stp = ((cape/1500.) * (srh/150.) * min(bwd/12., 1.5) * min((2000.-lcl)/1000., 1.) *
+               min((200.-cin)/150., 1.))
+        
+    return stp
+
+
+#---------------------------------------------------------------------------------------------------
 # Functions to Compute Sounding Parameters Following getcape.F from CM1
 #---------------------------------------------------------------------------------------------------
 
