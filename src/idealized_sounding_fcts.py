@@ -543,12 +543,22 @@ def stp(cape, srh, bwd, lcl, cin):
     See Thompson et al. (2012, WAF)
     
     """
+
+    if type(cape) == float:
+        cape = np.array([cape])
+        srh = np.array([srh])
+        bwd = np.array([bwd])
+        lcl = np.array([lcl])
+        cin = np.array([cin])
     
-    if (bwd < 12.5) or (lcl > 2000.) or (cin > 200.):
-        stp = 0.
-    else:
-        stp = ((cape/1500.) * (srh/150.) * min(bwd/20., 1.5) * min((2000.-lcl)/1000., 1.) *
-               min((200.-cin)/150., 1.))
+    bwd[np.where(bwd < 12.5)] = 0.
+    bwd[np.where(bwd > 30.)] = 30.
+    lcl[np.where(lcl < 1000.)] = 1000.
+    lcl[np.where(lcl > 2000.)] = 2000.
+    cin[np.where(cin < 50)] = 50.
+    cin[np.where(cin > 200.)] = 200.
+    
+    stp = (cape/1500.) * (srh/150.) * (bwd/20.) * ((2000.-lcl)/1000.) * ((200.-cin)/150.)
         
     return stp
 
