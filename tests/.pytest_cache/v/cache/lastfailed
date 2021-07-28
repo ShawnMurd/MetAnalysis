@@ -1,3 +1,4 @@
 {
-  "test_getcape.py::test_getcape_pseudo": true
+  "test_getcape.py::test_getcape_pseudo": true,
+  "test_idealized_sounding_fcts.py::test_effect_inflow": true
 }
