@@ -10,7 +10,7 @@ The easiest way to use MetAnalysis is to fork this repo or make a clone on your 
 * src/idealized_sounding_fcts.py
     - Compute thermodynamic parameters (e.g., CAPE and CIN) using either pseudoadiabatic or reversible parcel ascent
     - Create analytic thermodynamic soundings, such as Weisman and Klemp (1982) and McCaul and Weisman (2001)
-    - Includes updated versions of the Python code used in Murdzek et al. (2021, *JAS*, DOI: 10.1175/JAS-D-21-0069.1)
+    - Includes updated versions of the Python code used in [Murdzek et al. (2021, DOI: 10.1175/JAS-D-21-0069.1)](https://doi.org/10.1175/JAS-D-21-0069.1). examples/mccaul_weisman_snd_parameters.ipynb contains an example of how this code can be used to create the input soundings from Murdzek et al. (2021) and how to compute pseudoadiabatic and reversible parameters.
 * src/kine_fcts.py
     - Efficiently compute Eulerian circulation around each point in a 3D grid using Numba
 * src/largest_area.py
