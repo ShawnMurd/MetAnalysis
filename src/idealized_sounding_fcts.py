@@ -538,13 +538,26 @@ def stp(cape, srh, bwd, lcl, cin):
     stp : float
         Significant tornado parameter (unitless)
 
-    """
+    Notes
+    -----
+    See Thompson et al. (2012, WAF)
     
-    if (lcl >= 2000.) or (srh <= 0.):
-        stp = 0.
-    else:
-        stp = ((cape/1500.) * (srh/150.) * min(bwd/12., 1.5) * min((2000.-lcl)/1000., 1.) *
-               min((200.-cin)/150., 1.))
+    """
+
+    if type(cape) == float:
+        cape = np.array([cape])
+        srh = np.array([srh])
+        bwd = np.array([bwd])
+        lcl = np.array([lcl])
+        cin = np.array([cin])
+    
+    stp = ((cape/1500.) * (srh/150.) * np.minimum((bwd/20.), 1.5) * 
+           np.minimum(((2000.-lcl)/1000.), 1.) * np.minimum(((200.-cin)/150.), 1.))
+    
+    stp[np.where(bwd < 12.5)] = 0.
+    stp[np.where(lcl > 2000.)] = 0.
+    stp[np.where(cin > 200.)] = 0.
+    stp[np.where(srh < 0.)] = 0.
         
     return stp
 
@@ -1242,9 +1255,14 @@ def effect_inflow(p, T, qv, min_cape=100, max_cin=250, adiabat=1):
             
     Notes
     -----
+    This algorithm stops searching for an EIL if the EIL base is above 500 hPa
+    
     EIL definition comes from Thompson et al. (2007, WAF)
     
     """
+    
+    # Set stopping criteria
+    istop = np.where(p < 50000.)[0][0]
     
     # Determine bottom of effective inflow layer
     i = 0
@@ -1252,6 +1270,8 @@ def effect_inflow(p, T, qv, min_cape=100, max_cin=250, adiabat=1):
     while (cape < min_cape) or (cin > max_cin):
         cape, cin, _, _, _ = getcape(p[i:], T[i:], qv[i:], adiabat=adiabat)
         i = i + 1
+        if i > istop:
+            return np.nan, np.nan, np.nan, np.nan
     i_bot = i
     p_bot = p[i_bot]
     
