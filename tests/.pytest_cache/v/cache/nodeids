@@ -31,5 +31,6 @@
   "test_idealized_sounding_fcts.py::test_DALR",
   "test_idealized_sounding_fcts.py::test_getLCL",
   "test_idealized_sounding_fcts.py::test_MALR",
-  "test_idealized_sounding_fcts.py::test_stp"
+  "test_idealized_sounding_fcts.py::test_stp",
+  "test_idealized_sounding_fcts.py::test_getTwb"
 ]

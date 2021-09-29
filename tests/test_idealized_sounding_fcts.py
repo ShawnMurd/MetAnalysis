@@ -103,6 +103,11 @@ def test_MALR():
     T = isf.MALR(300.0, np.array([92500.0, 85000.0, 70000.0, 50000.0]))
     T_truth = np.array([300.0, 297.34127, 291.12318, 279.75510])
     np.testing.assert_allclose(T, T_truth, rtol=0.001)
+    
+def test_getTwb():
+    Twb = isf.getTwb(300., 95000., 0.008)
+    Twb_truth = 289.196
+    assert Twb == pytest.approx(Twb_truth, abs=0.05)
 
 
 #---------------------------------------------------------------------------------------------------
