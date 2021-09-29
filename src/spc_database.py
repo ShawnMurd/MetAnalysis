@@ -49,10 +49,10 @@ def add_datetime(df):
     return df
 
 
-def read_spc_database(fname, filter_param=True, remove_duplicates=True, update_date=True):
+def read_spc_database(fname, filter_param=True, remove_duplicates=True, update_date=True,
+                      rm_supercell=True):
     """
-    Read the SPC Convective Mode Database and save as a Pandas DataFrame. Only include right-moving
-    supercell cases.
+    Read the SPC Convective Mode Database and save as a Pandas DataFrame.
 
     Parameters
     ----------
@@ -64,6 +64,8 @@ def read_spc_database(fname, filter_param=True, remove_duplicates=True, update_d
         Option to only retain the most severe storm report within 185 km and +/- 3 hours
     update_date : boolean, optional
         Option to update the 'date' column to be datetime objects
+    rm_supercell : boolean, optional
+        Option to only retain right-moving supercells not associated with tropical cyclones
 
     Returns
     -------
@@ -80,13 +82,11 @@ def read_spc_database(fname, filter_param=True, remove_duplicates=True, update_d
     
     case_df = raw_df[np.isnan(raw_df['error?'])]
     
-    # Only retain right-moving supercells
+    # Only retain right-moving supercells and remove cases associated with tropical cyclones
     
-    case_df = case_df[case_df['super RM'] == 1]
-    
-    # Remove cases associated with tropical cyclones
-    
-    case_df = case_df[np.isnan(case_df['TC'])]
+    if rm_supercell:
+        case_df = case_df[case_df['super RM'] == 1]
+        case_df = case_df[np.isnan(case_df['TC'])]
     
     # Only keep cases with environmental parameters (some missing values are also set to -10000)
     
