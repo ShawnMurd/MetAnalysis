@@ -30,6 +30,7 @@ from numba import jit
 # Basic Thermodynamic Functions
 #---------------------------------------------------------------------------------------------------
 
+@jit(nopython=True, cache=True)
 def exner(p):
     """
     Compute the Exner function (nondimensional pressure)
@@ -59,6 +60,7 @@ def exner(p):
     return pi
 
 
+@jit(nopython=True, cache=True)
 def theta(T, p):
     """
     Compute potential temperature
@@ -84,6 +86,7 @@ def theta(T, p):
     return T / exner(p)
 
 
+@jit(nopython=True, cache=True)
 def DALR(T0, p):
     """
     Compute the temperature at a series of pressure levels assuming a dry adiabatic process
@@ -195,6 +198,7 @@ def get_qvs(T, p, sfc='l'):
     return qvs
 
 
+@jit(nopython=True, cache=True)
 def getTv(T, qv):
     """
     Compute virtual temperature
@@ -225,6 +229,7 @@ def getTv(T, qv):
     return Tv
 
 
+@jit(nopython=True, cache=True)
 def thetav(T, p, qv):
     """
     Compute virtual potential temperature
@@ -367,6 +372,7 @@ def getTd(T, p, qv):
     return Td
 
 
+@jit(nopython=True, cache=True)
 def buoy(T_p, p_p, qv_p, T_env, p_env, qv_env):
     """
     Compute buoyancy
@@ -464,7 +470,7 @@ def getLCL(T, p, qv):
     """
     
     def funct(p, T0=300., p0=100000., qv0=0.001):
-        return qv0 - get_qvs(DALR(T, np.array([p0, p]))[-1], p)
+        return qv0 - get_qvs(DALR(T, np.array([p0, float(p)], dtype=float))[-1], p)
     
     rh = getRH(T, p, qv)
     if rh < 1.:
@@ -979,7 +985,7 @@ def _lift_parcel(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0, z
 
 
 @jit(nopython=True, cache=True)
-def _parcel_descent(p, T, qv, idx, adiabat=1, pinc=-10.0):
+def _parcel_descent(p, T, qv, p0, T0, qv0, idx, adiabat=1, pinc=-10.0):
     """
     Track a parcel as it descends to the surface. Currently, only liquid processes are considered 
 
@@ -991,6 +997,12 @@ def _parcel_descent(p, T, qv, idx, adiabat=1, pinc=-10.0):
         Temperature profile (K)
     qv : array
         Water vapor mass mixing ratio profile (kg / kg)
+    p0 : float
+        Initial parcel pressure (Pa)
+    T0 : float
+        Initial parcel temperature (K)
+    qv0 : float
+        Initial parcel water vapor mass mixing ratio (kg / kg)
     idx : integer
         Index corresponding to initial parcel location
     adiabat : integer, optional
@@ -1047,10 +1059,10 @@ def _parcel_descent(p, T, qv, idx, adiabat=1, pinc=-10.0):
     th = T / pi
     thv = th * (1. + reps*qv) / (1. + qv) 
     
-    # Compute initial parcel properties (saturated with T = wet-bulb temperature)
-    p2 = p[idx]
-    T2 = getTwb(T[idx], p2, qv[idx])
-    qv2 = get_qvs(T2, p2)
+    # Compute initial parcel properties
+    p2 = p0
+    T2 = T0
+    qv2 = qv0
     th2  = theta(T2, p2)
     pi2  = exner(p2)
     thv2 = thetav(T2, p2, qv2)
@@ -1286,7 +1298,12 @@ def getdcape(p, T, qv, idx, adiabat=1, pinc=-10.0, returnB=False, returnTHV=Fals
     
     """
     
-    out = _parcel_descent(p, T, qv, idx, adiabat=adiabat, pinc=pinc)
+    # Determine initial parcel properties (saturated with T = wet-bulb T)
+    p0 = p[idx]
+    T0 = getTwb(T[idx], p0, qv[idx])
+    qv0 = get_qvs(T0, p0)
+    
+    out = _parcel_descent(p, T, qv, p0, T0, qv0, idx, adiabat=adiabat, pinc=pinc)
     out = list(out)
     
     if not returnQTOT:
