@@ -985,9 +985,10 @@ def _lift_parcel(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0, z
 
 
 @jit(nopython=True, cache=True)
-def _parcel_descent(p, T, qv, p0, T0, qv0, idx, adiabat=1, pinc=-10.0):
+def _parcel_descent(p, T, qv, p0, T0, qv0, idx, pinc=-10.0):
     """
-    Track a parcel as it descends to the surface. Currently, only liquid processes are considered 
+    Track a parcel as it descends to the surface along a moist adiabat. Currently, only liquid
+    processes are considered
 
     Parameters
     ----------
@@ -1005,10 +1006,6 @@ def _parcel_descent(p, T, qv, p0, T0, qv0, idx, adiabat=1, pinc=-10.0):
         Initial parcel water vapor mass mixing ratio (kg / kg)
     idx : integer
         Index corresponding to initial parcel location
-    adiabat : integer, optional
-        Adiabat to follow for parcel ascent. Options:
-            1 = Pseudoadiabatic, liquid only
-            2 = Reversible, liquid only
     pinc : float, optional
         Pressure increment for integration of hydrostatic equation (Pa)
 
@@ -1022,8 +1019,8 @@ def _parcel_descent(p, T, qv, p0, T0, qv0, idx, adiabat=1, pinc=-10.0):
         Buoyancy profile following the descending parcel (m / s^2)
     thv_all : array
         Virtual potential temperature profile following the descending parcel (K)
-    qtot_all : array
-        Total water mass mixing ratio profile following the descending parcel (kg/kg)
+    qv_all : array
+        Total water wavpor mass mixing ratio profile following the descending parcel (kg/kg)
     
     Notes
     -----
@@ -1067,18 +1064,16 @@ def _parcel_descent(p, T, qv, p0, T0, qv0, idx, adiabat=1, pinc=-10.0):
     pi2  = exner(p2)
     thv2 = thetav(T2, p2, qv2)
     B2 = buoy(T2, p2, qv2, T[idx], p[idx], qv[idx])
-    ql2 = 0.0
-    qt = qv2
         
     # Initialize variables for parcel descent
     dcape_tot = 0.0
     dcape_max = 0.0
     B_all     = np.zeros(idx+1)
     thv_all   = np.zeros(idx+1)
-    qtot_all  = np.zeros(idx+1)
+    qv_all  = np.zeros(idx+1)
     B_all[idx]    = B2
     thv_all[idx]  = thv2
-    qtot_all[idx] = qv2
+    qv_all[idx] = qv2
 
     # Parcel descent: Loop over each vertical level from idx to the surface
 
@@ -1098,7 +1093,6 @@ def _parcel_descent(p, T, qv, p0, T0, qv0, idx, adiabat=1, pinc=-10.0):
             T1   =  T2
             th1  = th2
             qv1  = qv2
-            ql1  = ql2
 
             p2 = p2 - dp
             pi2 = (p2*rp00)**rddcp
@@ -1110,68 +1104,60 @@ def _parcel_descent(p, T, qv, p0, T0, qv0, idx, adiabat=1, pinc=-10.0):
             while not_converged:
                 i = i + 1
                 T2 = thlast * pi2
-                    
-                qv2 = min(qt, get_qvs(T2, p2))
-                ql2 = max(qt - qv2, 0.0)
+                qv2 = max(qv1, get_qvs(T2, p2))
 
                 Tbar  = 0.5*(T1 + T2)
                 qvbar = 0.5*(qv1 + qv2)
-                qlbar = 0.5*(ql1 + ql2)
 
                 lhv = lv1 - lv2*Tbar
 
                 rm  = rd + rv*qvbar
-                cpm = cp + cpv*qvbar + cpl*qlbar
-                th2 = th1 * np.exp(lhv*(ql2 - ql1) / (cpm*Tbar)  
+                cpm = cp + cpv*qvbar
+                th2 = th1 * np.exp(lhv*(qv1 - qv2) / (cpm*Tbar)  
                                    + (rm/cpm - rd/cp) * np.log(p2/p1))
-
+                    
                 if i > 100:
                     raise RuntimeError('Max number of iterations (100) reached')
                              
-                if abs(th2 - thlast) > converge:
+                if abs(thlast - th2) > converge:
                     thlast = thlast + 0.3*(th2 - thlast)
                 else:
                     not_converged = False
             
-            # Latest pressure increment is complete.  Calculate some important stuff:
+        # Latest pressure step (dp) is complete
 
-            if adiabat == 1:
-                # pseudoadiabat
-                qt  = qv2
-                ql2 = 0.0         
-
-        thv2 = th2 * (1. + reps*qv2) / (1. + qv2 + ql2)
+        thv2 = th2 * (1. + reps*qv2) / (1. + qv2)
         B2 = g * (thv2 - thv[k]) / thv[k]
-        dz = -cpdg * 0.5 * (thv[k] + thv[k-1]) * (pi[k] - pi[k-1])
+        dz = cpdg * 0.5 * (thv[k+1] + thv[k]) * (pi[k+1] - pi[k])
         B_all[k] = B2
         thv_all[k] = thv2
-        qtot_all[k] = qv2 + ql2
+        qv_all[k] = qv2
 
         # Get contributions to DCAPE:           
 
         if (B2 <= 0.0 and B1 <= 0.0):
             # Contribution to dcape_max and dcape_tot
-            dcape_max = dcape_max - 0.5*dz*(B1+B2)
-            dcape_tot = dcape_tot - 0.5*dz*(B1+B2)
+            dcape_max = dcape_max + 0.5*dz*(B1+B2)
+            dcape_tot = dcape_tot + 0.5*dz*(B1+B2)
         elif (B2 >= 0.0 and B1 >= 0.0):
             # Contribution to dcape_tot only
-            dcape_tot = dcape_tot - 0.5*dz*(B1+B2)
+            dcape_tot = dcape_tot + 0.5*dz*(B1+B2)
         elif (B2 >= 0.0 and B1 <= 0.0):
             # Contribution to dcape_max and dcape_tot
             frac = B2 / (B2 - B1)
-            parea =  0.5*B2*dz*frac
-            narea = -0.5*B1*dz*(1.-frac)
-            dcape_max = dcape_max - narea
-            dcape_tot = dcape_tot - narea - parea
+            parea = -0.5*B2*dz*frac
+            narea = 0.5*B1*dz*(1.-frac)
+            dcape_max = dcape_max + narea
+            dcape_tot = dcape_tot + narea - parea
         elif (B2 <= 0.0 and B1 >= 0.0):
             # Contribution to dcape_max and dcape_tot
             frac = B1 / (B1 - B2)
-            parea =  0.5*B1*dz*frac
-            narea = -0.5*B2*dz*(1.-frac)
-            dcape_max = dcape_max - narea
-            dcape_tot = dcape_tot - narea - parea
+            parea = -0.5*B1*dz*frac
+            narea = 0.5*B2*dz*(1.-frac)
+            dcape_max = dcape_max + narea
+            dcape_tot = dcape_tot + narea - parea
 
-    return dcape_tot, dcape_max, B_all, thv_all, qtot_all
+    return dcape_tot, dcape_max, B_all, thv_all, qv_all
 
 
 def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0, returnB=False, 
@@ -1255,8 +1241,7 @@ def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0, return
     return tuple(out)
 
 
-def getdcape(p, T, qv, idx, adiabat=1, pinc=-10.0, returnB=False, returnTHV=False, 
-             returnQTOT=False):
+def getdcape(p, T, qv, idx, pinc=-10.0, returnB=False, returnTHV=False, returnQV=False):
     """
     Compute downdraft CAPE and associated parcel profile
 
@@ -1270,18 +1255,14 @@ def getdcape(p, T, qv, idx, adiabat=1, pinc=-10.0, returnB=False, returnTHV=Fals
         Water vapor mass mixing ratio profile (kg / kg)
     source : integer
         Index corresponding to initial parcel location
-    adiabat : integer, optional
-        Adiabat to follow for parcel ascent. Options:
-            1 = Pseudoadiabatic, liquid only
-            2 = Reversible, liquid only
     pinc : float, optional
         Pressure increment for integration of hydrostatic equation (Pa)
     returnB : boolean, optional
         Option to return buoyancy profile
     returnTHV : boolean, optional
         Option to return virtual potential temperature profile
-    returnQTOT : boolean, optional
-        Option to return total water mass mixing ratio profile
+    returnQV : boolean, optional
+        Option to return water vapor mass mixing ratio profile
 
     Returns
     -------
@@ -1293,8 +1274,8 @@ def getdcape(p, T, qv, idx, adiabat=1, pinc=-10.0, returnB=False, returnTHV=Fals
         Buoyancy profile following the lifted parcel (m / s^2)
     thv : array
         Virtual potential temperature profile following the lifted parcel (K)
-    qtot : array
-        Total water mass mixing ratio profile following the lifted parcel (kg/kg)
+    qv : array
+        Water vapor mass mixing ratio profile following the lifted parcel (kg/kg)
     
     """
     
@@ -1303,10 +1284,10 @@ def getdcape(p, T, qv, idx, adiabat=1, pinc=-10.0, returnB=False, returnTHV=Fals
     T0 = getTwb(T[idx], p0, qv[idx])
     qv0 = get_qvs(T0, p0)
     
-    out = _parcel_descent(p, T, qv, p0, T0, qv0, idx, adiabat=adiabat, pinc=pinc)
+    out = _parcel_descent(p, T, qv, p0, T0, qv0, idx, pinc=pinc)
     out = list(out)
     
-    if not returnQTOT:
+    if not returnQV:
         del out[4]
     
     if not returnTHV:
