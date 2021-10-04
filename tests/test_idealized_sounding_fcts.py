@@ -198,6 +198,33 @@ def test_getcape():
         
     B = isf.getcape(p, T, qv, returnB=True)[5]
     np.testing.assert_allclose(B, trueB, atol=0.0005)
+    
+
+def test_getdcape():
+    
+    # Read in CM1 Weisman-Klemp sounding
+
+    wk_df = pd.read_csv('../sample_data/cm1_weisman_klemp_snd.csv')    
+
+    T = wk_df['theta (K)'].values * wk_df['pi'].values
+    qv = wk_df['qv (kg/kg)'].values
+    p = wk_df['prs (Pa)'].values
+    
+    # "True" values from Kerry Emanuel's calcsound code
+    
+    kmax = 45
+    kmin = 5
+    cs_df = isf.calcsound_out_to_df('wk82.out')
+    dcape_truth = cs_df['DCAPE'][kmin:kmax].values
+    
+    # Compute DCAPE using MetAnalysis
+    
+    dcape = np.zeros(kmax-kmin)
+    for k in range(kmin, kmax):
+        dcape[k-kmin] = isf.getdcape(p, T, qv, k)[0]
+        
+    np.testing.assert_allclose(dcape, dcape_truth, rtol=0.1)
+
 
 #---------------------------------------------------------------------------------------------------
 # Test Functions Related to Vertical Profiles of Sounding Parameters

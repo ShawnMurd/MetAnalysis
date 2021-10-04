@@ -1,13 +1,6 @@
 """
 Test MetAnalysis DCAPE Function
 
-Current Problems:
-    1. Compute calcsound DCAPE using updated code on Roar in work/base_states/ordinary/
-
-UPDATE:
-    In regards to (2), an updated version of calcsound can be found at 
-    ~/work/base_states/ordinary/emanuel_calcsound/ on Roar
-
 Shawn Murdzek
 sfm5282@psu.edu
 Date Creted: 30 September 2021
