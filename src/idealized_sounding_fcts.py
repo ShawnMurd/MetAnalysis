@@ -1811,8 +1811,9 @@ def _mw_pbl(thetae, T_sfc, p_sfc, dz, lapse_rate=0.0085, depth=None, lr=0.0001):
         PBL lapse rate (K / m)
     depth : float, optional 
         Height of PBL (m). If None, PBL is terminated at LCL
-    lr : float, optional 
+    lr : float or function, optional 
         Lapse rate in LFC-LCL layer is equal to the MALR - lr (K / m)
+        lr can be a float or a function of z (in m)
     
     Returns
     -------
@@ -1873,23 +1874,26 @@ def _mw_pbl(thetae, T_sfc, p_sfc, dz, lapse_rate=0.0085, depth=None, lr=0.0001):
 
     if depth != None:
         
-        T_adjust = lr * dz
+        if type(lr) == float:
+            T_adjust = lr * dz
 
         while z_prof[i] < depth:
 
             i = i + 1
+            z_prof.append(z_prof[i-1] + dz)
             p_prof.append(p_prof[i-1] - ((p_prof[i-1] * g * dz) / (Rd * Tv)))
 
             # Have T decrease at MALR - lr
             
-            T_prof.append(MALR(T_prof[i-1], np.array(p_prof[i-1:]))[-1] + T_adjust)
+            if type(lr) == float:
+                T_prof.append(MALR(T_prof[i-1], np.array(p_prof[i-1:]))[-1] + T_adjust)
+            else:
+                T_prof.append(MALR(T_prof[i-1], np.array(p_prof[i-1:]))[-1] + (lr(z_prof[-1]) * dz))
             qv_prof.append(getqv_from_thetae(T_prof[i], p_prof[i], thetae))
             
             # Update Tv
 
             Tv = getTv(T_prof[i], qv_prof[i])
-
-            z_prof.append(z_prof[i-1] + dz)
 
     # Turn lists into array
 
@@ -1934,8 +1938,9 @@ def mccaul_weisman(z, E=2000.0, m=2.2, H=12500.0, z_trop=12000.0, RH_min=0.1, p_
         Lapse rates greater than crit_lapse are set to the PBL lapse rate (K / m)
     pbl_depth : float, optional
         PBL depth (m). Set to None to use the LCL as the PBL top
-    lr : float, optional 
-        Lapse rate in LCL-LFC layer is the MALR - lr (K / m)
+    lr : float or function, optional 
+        Lapse rate in LFC-LCL layer is equal to the MALR - lr (K / m)
+        lr can be a float or a function of z (in m)
         
     Returns
     -------
