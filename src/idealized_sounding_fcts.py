@@ -1807,8 +1807,9 @@ def _mw_pbl(thetae, T_sfc, p_sfc, dz, lapse_rate=0.0085, depth=None, lr=0.0001):
         Surface pressure (Pa)
     dz : float 
         Vertical grid spacing (m)
-    lapse_rate : float, optional 
+    lapse_rate : float or function, optional 
         PBL lapse rate (K / m)
+        lapse_rate can be a float or a function of z (in m)
     depth : float, optional 
         Height of PBL (m). If None, PBL is terminated at LCL
     lr : float or function, optional 
@@ -1861,7 +1862,11 @@ def _mw_pbl(thetae, T_sfc, p_sfc, dz, lapse_rate=0.0085, depth=None, lr=0.0001):
         # Compute p and T at next level using hydrostatic balance
 
         p_prof.append(p_prof[i-1] - ((p_prof[i-1] * g * dz) / (Rd * Tv)))
-        T_prof.append(T_prof[i-1] - (lapse_rate * dz))
+        if type(lapse_rate) == float:
+            T_prof.append(T_prof[i-1] - (lapse_rate * dz))
+        else:
+            zdum = dz*(i-1) + 0.5*dz
+            T_prof.append(T_prof[i-1] - (lapse_rate(zdum) * dz))
         z_prof.append(z_prof[i-1] + dz)
 
         # Update qv by forcing thetae to be constant
@@ -1888,7 +1893,8 @@ def _mw_pbl(thetae, T_sfc, p_sfc, dz, lapse_rate=0.0085, depth=None, lr=0.0001):
             if type(lr) == float:
                 T_prof.append(MALR(T_prof[i-1], np.array(p_prof[i-1:]))[-1] + T_adjust)
             else:
-                T_prof.append(MALR(T_prof[i-1], np.array(p_prof[i-1:]))[-1] + (lr(z_prof[-1]) * dz))
+                zdum = z_prof[-1] - 0.5*dz
+                T_prof.append(MALR(T_prof[i-1], np.array(p_prof[i-1:]))[-1] + (lr(zdum) * dz))
             qv_prof.append(getqv_from_thetae(T_prof[i], p_prof[i], thetae))
             
             # Update Tv
@@ -1932,8 +1938,9 @@ def mccaul_weisman(z, E=2000.0, m=2.2, H=12500.0, z_trop=12000.0, RH_min=0.1, p_
         Temperature at the surface (K)
     thetae_pbl : float, optional 
         Constant theta-e in PBL (K)
-    pbl_lapse : float, optional 
+    pbl_lapse : float or function, optional 
         Lapse rate below LCL (K / m)
+        pbl_lapse can be a float or a function of z (in m)
     crit_lapse : float, optional 
         Lapse rates greater than crit_lapse are set to the PBL lapse rate (K / m)
     pbl_depth : float, optional
