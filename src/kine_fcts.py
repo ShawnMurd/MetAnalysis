@@ -10,7 +10,9 @@ sfm5282@psu.edu
 #---------------------------------------------------------------------------------------------------
 
 import numpy as np
+import skimage.morphology as sm
 from numba import jit
+from scipy.signal import convolve2d
 
 
 #---------------------------------------------------------------------------------------------------
@@ -104,6 +106,56 @@ def circ(u, v, x1d, y1d, r, nazimuths=72):
             circ[:, j, i] = sumVt * dl_mag
             
     return circ
+
+
+def avg_var(var, x1d, y1d, r):
+    """
+    Compute the the average of a variable within a user-defined radius
+    
+    It is assumed that there is constant grid spacing in the x and y directions (the z dimension 
+    can be stretched). 
+    
+    Parameters
+    ----------
+    var : array
+        Variable to average, shape (nz, ny, nx)
+    x1d : array
+        1D array of x coordinates (km)
+    y1d : array 
+        1D array of y coordinates (km)
+    r : float
+        Radius of used to compute the average (km)
+        
+    Returns
+    -------
+    avg : array 
+        var averaged within circles with a radius of r
+    
+    """
+    
+    # Determine grid spacing
+    
+    dx = x1d[1] - x1d[0]
+    dy = y1d[1] - y1d[0]
+    #nx, ny = x1d.size, y1d.size
+    
+    # Create kernel for 2D convolution
+    
+    krx = int(r / dx)
+    kry = int(r / dy)
+    kx1d = np.arange(-krx*dx, krx*dx+(0.1*dx), dx)
+    ky1d = np.arange(-kry*dy, kry*dy+(0.1*dy), dy)
+    kx2d, ky2d = np.meshgrid(kx1d, ky1d)
+    dist2 = kx2d*kx2d + ky2d*ky2d
+    kernel = np.zeros([2*krx+1, 2*kry+1])
+    inds = dist2 <= (r*r)
+    kernel[inds] = 1
+    
+    # Use convolve2d to compute average of var within a disk with radius r
+    
+    avg = convolve2d(var, kernel, mode='same', fillvalue=np.nan) / kernel.sum()
+            
+    return avg
 
 
 """
