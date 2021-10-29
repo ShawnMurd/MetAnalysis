@@ -137,7 +137,6 @@ def avg_var(var, x1d, y1d, r):
     
     dx = x1d[1] - x1d[0]
     dy = y1d[1] - y1d[0]
-    #nx, ny = x1d.size, y1d.size
     
     # Create kernel for 2D convolution
     
