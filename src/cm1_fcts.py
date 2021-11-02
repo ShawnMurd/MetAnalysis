@@ -566,11 +566,11 @@ def wXcirc(cm1_ds):
 
     """
 
-    w = cm1_ds['winterp'][0, 0, :, :].values
+    w = cm1_ds['winterp'][:, 0, :, :].values
     x1d = cm1_ds['xh'].values
     y1d = cm1_ds['yh'].values
     wavg = kf.avg_var(w, x1d, y1d, 2.0)
-    C = cm1_ds['circ2'][0, 0, :, :].values
+    C = cm1_ds['circ2'][:, 0, :, :].values
     with np.errstate(invalid='ignore'):
         C[C < 0] = 0 
     dum = np.reshape(wavg * C, cm1_ds['uh'].shape)
