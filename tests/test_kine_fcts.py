@@ -51,17 +51,17 @@ def test_avg_var():
     
     x1d = np.arange(5)
     y1d = np.arange(5)
-    A = np.array([[1, 1, 1, 1, 1],
-                  [1, 2, 3, 4, 5],
-                  [3, 5, 7, 9, 11],
-                  [2, 4, 6, 8, 10],
-                  [2, 1, 0, 1, 2 ]])
+    A = np.array([[[[1, 1, 1, 1, 1],
+                    [1, 2, 3, 4, 5],
+                    [3, 5, 7, 9, 11],
+                    [2, 4, 6, 8, 10],
+                    [2, 1, 0, 1, 2 ]]]])
     r = 1.5
-    avg_ref = np.array([[np.nan, np.nan, np.nan, np.nan, np.nan],
-                        [np.nan, 2.6667, 3.6667, 4.6667, np.nan],
-                        [np.nan, 3.6667, 5.3333, 7.0000, np.nan],
-                        [np.nan, 3.3333, 4.5556, 6.0000, np.nan],
-                        [np.nan, np.nan, np.nan, np.nan, np.nan]])
+    avg_ref = np.array([[[[np.nan, np.nan, np.nan, np.nan, np.nan],
+                          [np.nan, 2.6667, 3.6667, 4.6667, np.nan],
+                          [np.nan, 3.6667, 5.3333, 7.0000, np.nan],
+                          [np.nan, 3.3333, 4.5556, 6.0000, np.nan],
+                          [np.nan, np.nan, np.nan, np.nan, np.nan]]]])
     
     # Compute average variable and compare to reference value
     
