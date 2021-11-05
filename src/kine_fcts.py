@@ -118,7 +118,7 @@ def avg_var(var, x1d, y1d, r):
     Parameters
     ----------
     var : array
-        Variable to average, shape (nz, ny, nx)
+        Variable to average, shape (nt, nz, ny, nx)
     x1d : array
         1D array of x coordinates (km)
     y1d : array 
@@ -152,7 +152,11 @@ def avg_var(var, x1d, y1d, r):
     
     # Use convolve2d to compute average of var within a disk with radius r
     
-    avg = convolve2d(var, kernel, mode='same', fillvalue=np.nan) / kernel.sum()
+    avg = np.zeros(var.shape)
+    for i in range(avg.shape[0]):
+        for j in range(avg.shape[1]):
+            avg[i, j, :, :] = (convolve2d(var[i, j, :, :], kernel, mode='same', fillvalue=np.nan) 
+                               / kernel.sum())
             
     return avg
 
