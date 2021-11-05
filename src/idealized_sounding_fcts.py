@@ -980,6 +980,10 @@ def _lift_parcel(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0, z
 
         if (p[k] <= 10000. and B2 <= 0.):
             break
+    
+    # Condition where LFC is not reached
+    if cin == 0:
+        cin = narea
 
     return cape, cin, zlcl, zlfc, zel, B_all, thv_all, qtot_all
 
