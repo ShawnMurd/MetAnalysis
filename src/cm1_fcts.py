@@ -16,104 +16,124 @@ import numpy.ma as ma
 import xarray as xr
 import scipy.stats as ss
 import scipy.special as spec
+import warnings
 import MetAnalysis.src.idealized_sounding_fcts as isf
 import MetAnalysis.src.largest_area as la
 import MetAnalysis.src.kine_fcts as kf
-import metpy.calc as mc
-from metpy.units import units
 
 
 #---------------------------------------------------------------------------------------------------
 # Thermodynamic Functions
 #---------------------------------------------------------------------------------------------------
 
-def thetav_prime(cm1_ds):
+def thvpert(cm1_ds):
     """
-    Compute virtual potential temperature perturbations from CM1 output using eqn (2.20) in
-    Markowski and Richardson (2010).
-    Inputs:
-        cm1_ds = Xarray dataset of CM1 output that includes the variables 'th', 'th0', 'qv', and 
-            'qv0'
-    Outputs:
-        thvpert = Array of virtual potential temperature perturbations
+    Compute virtual potential temperature perturbations
+    
+    Parameters
+    ----------
+    cm1_ds : xarray dataset
+        CM1 dataset. Must contain th0, qv0, th, and qv
+        
+    Returns
+    -------
+    cm1_ds : xarray dataset
+        CM1 dataset that includes thvpert (K)
+    
     """
-
-    # Define constants
-
-    epn = 0.62198
 
     # Compute base state thv
 
-    thv0 = (cm1_ds['th0'].values * (1.0 + (cm1_ds['qv0'].values / epn)) / 
-            (1.0 + cm1_ds['qv0'].values))
+    p0 = cm1_ds['p0'].values
+    T0 = isf.getTfromTheta(cm1_ds['th0'].values, p0)
+    thv0 =isf.thetav(T0, p0, cm1_ds['qv0'].values)
 
-    # Compute thv perturbations
+    # Compute thv
  
-    thv = cm1_ds['th'].values * (1.0 + (cm1_ds['qv'].values / epn)) / (1.0 + cm1_ds['qv'].values)
-    thvpert = thv - thv0
+    p = cm1_ds['p'].values
+    T = isf.getTfromTheta(cm1_ds['th'].values, p)
+    thv =isf.thetav(T, p, cm1_ds['qv'].values)
 
-    return thvpert
+    # Add thvpert to cm1_ds
+    
+    cm1_ds['thvpert'] = xr.DataArray(thv - thv0, coords=cm1_ds['th'].coords, dims=cm1_ds['th'].dims)
+    cm1_ds['thvpert'].attrs['long_name'] = 'virtual potential temperature perturbations'   
+    cm1_ds['thvpert'].attrs['units'] = 'K'
+
+    return cm1_ds
 
 
 def thetarho_prime(cm1_ds):
     """
-    Compute density potential temperature perturbations from CM1 output using eqn (2.22) in
-    Markowski and Richardson (2010).
-    Inputs:
-        cm1_ds = Xarray dataset of CM1 output that includes the variables 'th', 'th0', 'qv', 'qv0',
-            'qc', 'qr', 'qi', 'qs', 'qg', and 'qhl'
-    Outputs:
-        thrpert = Array of density potential temperature perturbations
+    Compute density potential temperature perturbations
+    
+    Parameters
+    ----------
+    cm1_ds : xarray dataset
+        CM1 dataset. Must contain th0, qv0, th, qv, and hydrometeor mixing ratios
+        
+    Returns
+    -------
+    cm1_ds : xarray dataset
+        CM1 dataset that includes thrpert (K)
+        
     """
 
-    # Define constants
+    # Compute base state thr (assume base state hydrometeor mixing ratio is 0)
 
-    epn = 0.62198
+    p0 = cm1_ds['p0'].values
+    T0 = isf.getTfromTheta(cm1_ds['th0'].values, p0)
+    thr0 =isf.thetav(T0, p0, cm1_ds['qv0'].values)
 
-    # Compute base state thr (it is assumed that the base state hydrometeor mixing ratio is 0)
+    # Compute thr
 
-    thr0 = (cm1_ds['th0'].values * (1.0 + (cm1_ds['qv0'].values / epn)) /
-            (1.0 + cm1_ds['qv0'].values))
+    qt = cm1_ds['qv'].values
+    for f in ['c', 'r', 'i', 'i1', 'i2', 'g', 'hl']:
+        try:
+            qt = qt + cm1_ds['q'+f].values
+        except KeyError:
+            continue
 
-    # Compute thr perturbations
+    p = cm1_ds['p'].values
+    T = isf.getTfromTheta(cm1_ds['th'].values, p)
+    thr =isf.thetarho(T, p, cm1_ds['qv'].values, qt)
+    
+    # Add thvpert to cm1_ds
+    
+    cm1_ds['thrpert'] = xr.DataArray(thr - thr0, coords=cm1_ds['th'].coords, dims=cm1_ds['th'].dims)
+    cm1_ds['thrpert'].attrs['long_name'] = 'density potential temperature perturbations'   
+    cm1_ds['thrpert'].attrs['units'] = 'K'
 
-    qtot = (cm1_ds['qv'].values + cm1_ds['qc'].values + cm1_ds['qr'].values + cm1_ds['qi'].values +
-            cm1_ds['qs'].values + cm1_ds['qg'].values + cm1_ds['qhl'].values)
-    thr = cm1_ds['th'].values * (1.0 + (cm1_ds['qv'].values / epn)) / (1.0 + qtot)
-    thrpert = thr - thr0
-
-    return thrpert
+    return cm1_ds
 
 
 def thepert(cm1_ds):
     """
-    Compute equivalent potential temperature base state and perturbations
-    Inputs:
-        cm1_ds = CM1 XArray dataset that includes prs, qv, th, and base state
-    Outputs:
-        cm1_ds = CM1 XArray dataset with theta-e perturbations
+    Compute equivalent potential temperature and perturbations
+    
+    Parameters
+    ----------
+    cm1_ds : xarray dataset
+        CM1 dataset. Must contain th0, qv0, th, and qv
+        
+    Returns
+    -------
+    cm1_ds : xarray dataset
+        CM1 dataset that includes the and thepert (K)
+        
     """
  
-    p = cm1_ds['prs'].values * units.Pa
-    qv = cm1_ds['qv'].values * (units.kg / units.kg)
-    th = cm1_ds['th'].values * units.K
-    p0 = cm1_ds['prs0'].values * units.Pa
-    qv0 = cm1_ds['qv0'].values * (units.kg / units.kg)
-    th0 = cm1_ds['th0'].values * units.K
+    # Compute base state the
 
-    # Compute base state theta-e
+    p0 = cm1_ds['p0'].values
+    T0 = isf.getTfromTheta(cm1_ds['th0'].values, p0)
+    the0 =isf.getthe(T0, p0, cm1_ds['qv0'].values)
 
-    T0 = mc.temperature_from_potential_temperature(p0, th0)
-    RH0 = mc.relative_humidity_from_mixing_ratio(qv0, T0, p0)
-    Td0 = mc.dewpoint_from_relative_humidity(T0, RH0)
-    the0 = mc.equivalent_potential_temperature(p0, T0, Td0).magnitude
-
-    # Compute theta-e perturbations
-
-    T = mc.temperature_from_potential_temperature(p, th)
-    RH = mc.relative_humidity_from_mixing_ratio(qv, T, p)
-    Td = mc.dewpoint_from_relative_humidity(T, RH)
-    thepert = mc.equivalent_potential_temperature(p, T, Td).magnitude - the0
+    # Compute the
+ 
+    p = cm1_ds['p'].values
+    T = isf.getTfromTheta(cm1_ds['th'].values, p)
+    the =isf.getthe(T, p, cm1_ds['qv'].values)
 
     # Add the0 and thepert to cm1_ds
 
@@ -121,7 +141,7 @@ def thepert(cm1_ds):
     cm1_ds['the0'].attrs['long_name'] = 'base state equivalent potential temperature'   
     cm1_ds['the0'].attrs['units'] = 'K'
 
-    cm1_ds['thepert'] = xr.DataArray(the0, coords=cm1_ds['th'].coords, dims=cm1_ds['th'].dims)
+    cm1_ds['thepert'] = xr.DataArray(the - the0, coords=cm1_ds['th'].coords, dims=cm1_ds['th'].dims)
     cm1_ds['thepert'].attrs['long_name'] = 'equivalent potential temperature perturbations'   
     cm1_ds['thepert'].attrs['units'] = 'K'
 
@@ -131,18 +151,22 @@ def thepert(cm1_ds):
 def thetae(cm1_ds):
     """
     Compute equivalent potential temperature
-    Inputs:
-        cm1_ds = CM1 XArray dataset that includes prs, qv, and th
-    Outputs:
-        cm1_ds = CM1 XArray dataset with theta-e
+    
+    Parameters
+    ----------
+    cm1_ds : xarray dataset
+        CM1 dataset. Must contain th0, qv0, th, and qv
+        
+    Returns
+    -------
+    cm1_ds : xarray dataset
+        CM1 dataset that includes thetae (K)
+        
     """
  
-    p = cm1_ds['prs'].values
-    qv = cm1_ds['qv'].values
-    th = cm1_ds['th'].values
-    
-    T = isf.getTfromTheta(th, p)
-    thetae = isf.getthe(T, p, qv)
+    p = cm1_ds['prs'].values    
+    T = isf.getTfromTheta(cm1_ds['th'].values, p)
+    thetae = isf.getthe(T, p, cm1_ds['qv'].values)
 
     # Add theta-e to cm1_ds
 
@@ -156,25 +180,29 @@ def thetae(cm1_ds):
 def rh(cm1_ds):
     """
     Compute relative humidity (defined as qv / qvs)
-    Inputs:
-        cm1_ds = CM1 XArray dataset that includes prs, qv, and T
-    Outputs:
-        cm1_ds = CM1 XArray dataset with relative humidity
+    
+    Parameters
+    ----------
+    cm1_ds : xarray dataset
+        CM1 dataset. Must contain th, p, and qv
+        
+    Returns
+    -------
+    cm1_ds : xarray dataset
+        CM1 dataset that includes RH (unitless)
+        
     """
 
     p = cm1_ds['prs'].values
-    qv = cm1_ds['qv'].values
-
     try:
         T = cm1_ds['T'].values
     except KeyError:
-        th = cm1_ds['th'].values
-        rovcp = 287.04 / 1005.7
-        T = th * ((p / 100000.0) ** rovcp)
+        T = isf.getTfromTheta(cm1_ds['th'].values, p)
 
     qvs = isf.get_qvs(T, p)
 
-    cm1_ds['RH'] = xr.DataArray(qv / qvs, coords=cm1_ds['prs'].coords, dims=cm1_ds['prs'].dims)
+    cm1_ds['RH'] = xr.DataArray(cm1_ds['qv'].values / qvs, coords=cm1_ds['prs'].coords, 
+                                dims=cm1_ds['prs'].dims)
     cm1_ds['RH'].attrs['long_name'] = 'relative humidity (decimal)'
     cm1_ds['RH'].attrs['units'] = 'none'
 
@@ -188,10 +216,19 @@ def rh(cm1_ds):
 def Dnr(cm1_ds, mur=0.0):
     """
     Compute number-weighted mean raindrop diameter (for qr > 0.01 g / kg)
-    Inputs:
-        cm1_ds = CM1 XArray dataset that includes qr and ncr
-    Outputs:
-        cm1_ds = CM1 XArray dataset with Dr
+    
+    Parameters
+    ----------
+    cm1_ds : xarray dataset
+        CM1 dataset. Must contain rain mass and number mixing ratios
+    mur : float, optional
+        Rain drop size distribution shape parameter
+        
+    Returns
+    -------
+    cm1_ds : xarray dataset
+        CM1 dataset that includes Dnr (mm)
+        
     """
 
     qr = cm1_ds['qr'].values
@@ -218,10 +255,19 @@ def Dnr(cm1_ds, mur=0.0):
 def Dmr(cm1_ds, mur=0.0):
     """
     Computes the mass-weighted mean raindrop diameter (for qr > 0.01 g / kg)
-    Inputs:
-        cm1_ds = CM1 XArray dataset that includes qr and ncr
-    Outputs:
-        cm1_ds = CM1 XArray dataset with Dmr
+    
+    Parameters
+    ----------
+    cm1_ds : xarray dataset
+        CM1 dataset. Must contain rain mass and number mixing ratios
+    mur : float, optional
+        Rain drop size distribution shape parameter
+        
+    Returns
+    -------
+    cm1_ds : xarray dataset
+        CM1 dataset that includes Dmr (mm)
+        
     """
 
     qr = cm1_ds['qr'].values
@@ -248,13 +294,23 @@ def Dmr(cm1_ds, mur=0.0):
 def Dng(cm1_ds, rhog, CG, DG):
     """
     Compute number-weighted mean RIS diameter (for qg > 0.01 g / kg)
-    Inputs:
-        cm1_ds = CM1 XArray dataset that includes qg and ncg
-        rhog = RIS density (kg / m^3)
-        CG = RIS mass-diameter coefficient
-        DG = RIS mass-diameter exponent
-    Outputs:
-        cm1_ds = CM1 XArray dataset with Dg
+    
+    Parameters
+    ----------
+    cm1_ds : xarray dataset
+        CM1 dataset. Must contain RIS mass and number mixing ratios
+    rhog : float, optional
+        RIS density (kg / m^3)
+    CG : float, optional
+        RIS mass-diameter coefficient
+    DG : float, optional
+        RIS mass-diameter exponent
+        
+    Returns
+    -------
+    cm1_ds : xarray dataset
+        CM1 dataset that includes Dg (mm)
+
     """
 
     qg = cm1_ds['qg'].values
@@ -276,8 +332,8 @@ def Dm(cm1_ds, qfield='qr', nfield='nr', rho=1000., name='mmDr'):
 
     Parameters
     ----------
-    cm1_ds : XArray DataSet
-        CM1 output file
+    cm1_ds : xarray dataset
+        CM1 dataset
     qfield : string, optional
         Name of mass mixing ratio field
     nfield : string, optional
@@ -285,11 +341,11 @@ def Dm(cm1_ds, qfield='qr', nfield='nr', rho=1000., name='mmDr'):
     rho : float, optional
         Density of hydrometeor species (kg / m^3)
     name : string, optional
-        Name of field to add to DataSet
+        Name of field to add to dataset
 
     Returns
     -------
-    cm1_ds : XArray DataSet
+    cm1_ds : xarray dataset
         CM1 output file with the field 'Dm'
 
     """
@@ -312,10 +368,17 @@ def Dm(cm1_ds, qfield='qr', nfield='nr', rho=1000., name='mmDr'):
 def vorts(cm1_ds):
     """
     Compute streamwise vorticity
-    Inputs:
-        cm1_ds = CM1 XArray dataset that includes all 3 velocity and vorticity components
-    Outputs:
-        cm1_ds = CM1 XArray dataset with streamwise vorticity
+    
+    Parameters
+    ----------
+    cm1_ds : xarray dataset
+        CM1 dataset. Must contain all 3 velocity and vorticity components
+        
+    Returns
+    -------
+    cm1_ds : xarray dataset
+        CM1 dataset that includes vorts (/s)
+        
     """
 
     u = cm1_ds['uinterp'].values
@@ -336,10 +399,17 @@ def vorts(cm1_ds):
 def hvorts(cm1_ds):
     """
     Compute streamwise horizontal vorticity
-    Inputs:
-        cm1_ds = CM1 XArray dataset that includes all 3 velocity and vorticity components
-    Outputs:
-        cm1_ds = CM1 XArray dataset with streamwise horizontal vorticity
+    
+    Parameters
+    ----------
+    cm1_ds : xarray dataset
+        CM1 dataset. Must contain horizontal velocity and vorticity components
+        
+    Returns
+    -------
+    cm1_ds : xarray dataset
+        CM1 dataset that includes hvorts (/s)
+        
     """
 
     u = cm1_ds['uinterp']
@@ -356,10 +426,17 @@ def hvorts(cm1_ds):
 def dwdz(cm1_ds):
     """
     Compute the vertical gradient of W
-    Inputs:
-        cm1_ds = CM1 XArray dataset that includes w
-    Outputs:
-        cm1_ds = CM1 XArray dataset with dw/dz
+    
+    Parameters
+    ----------
+    cm1_ds : xarray dataset
+        CM1 dataset. Must contain vertical velocity
+        
+    Returns
+    -------
+    cm1_ds : xarray dataset
+        CM1 dataset that includes dwdz (/s)
+        
     """
 
     w = cm1_ds['w'].values
@@ -369,11 +446,8 @@ def dwdz(cm1_ds):
         zf = cm1_ds['nkp1'].values * 1e3
 
     dz = zf[1:] - zf[:-1]
-    dz3d = np.zeros(cm1_ds['winterp'].shape)
-    for i in range(w.shape[0]):
-        for j in range(w.shape[2]):
-            for k in range(w.shape[3]):
-                dz3d[i, :, j, k] = dz
+    s = w.shape
+    dz3d = np.tile(dz[np.newaxis, :, np.newaxis, np.newaxis], (s[0], dz.size, s[2], s[3]))
 
     dwdz = (w[:, 1:, :, :] - w[:, :-1, :, :]) / dz3d
     cm1_ds['dwdz'] = xr.DataArray(dwdz, coords=cm1_ds['winterp'].coords, 
@@ -387,10 +461,17 @@ def dwdz(cm1_ds):
 def vortz_stretch(cm1_ds):
     """
     Compute vertical vorticity stretching
-    Inputs:
-        cm1_ds = CM1 XArray dataset that includes w and zvort
-    Outputs:
-        cm1_ds = CM1 XArray dataset with vertical vorticity stretching
+    
+    Parameters
+    ----------
+    cm1_ds : xarray dataset
+        CM1 dataset. Must contain zvort and dwdz
+        
+    Returns
+    -------
+    cm1_ds : xarray dataset
+        CM1 dataset that includes vortz_stretch (/s^2)
+        
     """
 
     cm1_ds = dwdz(cm1_ds)
@@ -404,10 +485,17 @@ def vortz_stretch(cm1_ds):
 def vortz_tilt(cm1_ds):
     """
     Compute vertical vorticity tilting
-    Inputs:
-        cm1_ds = CM1 XArray dataset that includes w and 3D vorticity vector
-    Outputs:
-        cm1_ds = CM1 XArray dataset with vertical vorticity tilting
+    
+    Parameters
+    ----------
+    cm1_ds : xarray dataset
+        CM1 dataset. Must contain horizontal velocity and vorticity components
+        
+    Returns
+    -------
+    cm1_ds : xarray dataset
+        CM1 dataset that includes vortz_tilt (/s^2)
+        
     """
 
     w = cm1_ds['winterp'].values
@@ -433,10 +521,17 @@ def vortz_tilt(cm1_ds):
 def hgrad_w_mag(cm1_ds):
     """
     Compute magnitude of the vertical velocity horizontal gradient
-    Inputs:
-        cm1_ds = CM1 XArray dataset that includes w
-    Outputs:
-        cm1_ds = CM1 XArray dataset with vertical velocity horizontal gradient
+    
+    Parameters
+    ----------
+    cm1_ds : xarray dataset
+        CM1 dataset. Must contain vertical velocity
+        
+    Returns
+    -------
+    cm1_ds : xarray dataset
+        CM1 dataset that includes hgrad_w_mag (/s)
+        
     """
 
     w = cm1_ds['winterp'].values
@@ -460,10 +555,17 @@ def hgrad_w_mag(cm1_ds):
 def conv2d(cm1_ds):
     """
     Compute horizontal convergence, assuming constant dx and dy
-    Inputs:
-        cm1_ds = CM1 XArray dataset that includes u and v
-    Outputs:
-        cm1_ds = CM1 XArray dataset with horizontal convergence
+    
+    Parameters
+    ----------
+    cm1_ds : xarray dataset
+        CM1 dataset. Must contain horizontal velocity components
+        
+    Returns
+    -------
+    cm1_ds : xarray dataset
+        CM1 dataset that includes conv2d (/s)
+        
     """
 
     u = cm1_ds['u'].values
@@ -474,6 +576,7 @@ def conv2d(cm1_ds):
     except KeyError:
         dx = (cm1_ds['nip1'].values[1] - cm1_ds['nip1'].values[0]) * 1e3
         dy = (cm1_ds['njp1'].values[1] - cm1_ds['njp1'].values[0]) * 1e3
+        
     div = (u[:, :, :, 1:] - u[:, :, :, :-1]) / dx + (v[:, :, 1:, :] - v[:, :, :-1, :]) / dy
     cm1_ds['conv2d'] = xr.DataArray(-div, coords=cm1_ds['uinterp'].coords, 
                                     dims=cm1_ds['uinterp'].dims)
@@ -485,14 +588,25 @@ def conv2d(cm1_ds):
 
 def OW(cm1_ds):
     """
-    Compute the Okubo-Weiss number (Markowski et al. 2011, EJSSM), assuming constant dx and dy
-    Inputs:
-        cm1_ds = CM1 XArray dataset that includes u, v, and zvort
-    Outputs:
-        cm1_ds = CM1 XArray dataset with Okubo-Weiss number
+    Compute the Okubo-Weiss number assuming constant dx and dy
+    
+    Parameters
+    ----------
+    cm1_ds : xarray dataset
+        CM1 dataset. Must contain all horizontal velocity components and zvort
+        
+    Returns
+    -------
+    cm1_ds : xarray dataset
+        CM1 dataset that includes OW (/s^2)
+        
+    Notes
+    -----
+    See Markowski et al. 2011, EJSSM
+        
     """
 
-    print('THERE IS A BUG IN THE OW FUNCTION')
+    warnings.warn('THERE IS A BUG IN THE OW FUNCTION')
 
     # D2 is not computed correctly. Also, double-check that OW = D1*D1 + D2*D2 - zeta*zeta
 
@@ -505,6 +619,7 @@ def OW(cm1_ds):
     except KeyError:
         dx = (cm1_ds['nip1'].values[1] - cm1_ds['nip1'].values[0]) * 1e3
         dy = (cm1_ds['njp1'].values[1] - cm1_ds['njp1'].values[0]) * 1e3
+        
     D1 = (u[:, :, :, 1:] - u[:, :, :, :-1]) / dx - (v[:, :, 1:, :] - v[:, :, :-1, :]) / dy
     D2 = (v[:, :, 1:, :] - v[:, :, :-1, :]) / dx + (u[:, :, :, 1:] - u[:, :, :, :-1]) / dy
     cm1_ds['OW'] = xr.DataArray(D1*D1 + D2*D2 - zeta*zeta, coords=cm1_ds['uinterp'].coords, 
@@ -518,10 +633,17 @@ def OW(cm1_ds):
 def vort_mag(cm1_ds):
     """
     Compute magnitude of the 3D vorticity vector
-    Inputs:
-        cm1_ds = CM1 XArray dataset that includes 3D vorticity vector components
-    Outputs:
-        cm1_ds = CM1 XArray dataset with magnitude of 3D vorticity vector
+    
+    Parameters
+    ----------
+    cm1_ds : xarray dataset
+        CM1 dataset. Must contain all 3 vorticity components
+        
+    Returns
+    -------
+    cm1_ds : xarray dataset
+        CM1 dataset that includes vort_mag (/s)
+        
     """
 
     cm1_ds['vort_mag'] = np.sqrt(cm1_ds['xvort']*cm1_ds['xvort'] + 
@@ -536,10 +658,17 @@ def vort_mag(cm1_ds):
 def hvort_mag(cm1_ds):
     """
     Compute magnitude of the horizontal vorticity vector
-    Inputs:
-        cm1_ds = CM1 XArray dataset that includes 2D vorticity vector components
-    Outputs:
-        cm1_ds = CM1 XArray dataset with magnitude of 2D vorticity vector
+    
+    Parameters
+    ----------
+    cm1_ds : xarray dataset
+        CM1 dataset. Must contain horizontal vorticity components
+        
+    Returns
+    -------
+    cm1_ds : xarray dataset
+        CM1 dataset that includes hvort_mag (/s)
+        
     """
 
     cm1_ds['hvort_mag'] = np.sqrt(cm1_ds['xvort']*cm1_ds['xvort'] + 
@@ -556,13 +685,13 @@ def wXcirc(cm1_ds):
     
     Parameters
     ----------
-    cm1_ds : xr.Dataset
-        CM1 output dataset
+    cm1_ds : xarray dataset
+        CM1 dataset. Must contain winterp and circ2
 
     Returns
     -------
-    cm1_ds : xr.Dataset
-        CM1 output dataset with winterp at LML times circulation (m^3 / s^2)
+    cm1_ds : xarray dataset
+        CM1 dataset that includes wXcirc (m^3 / s^2)
 
     """
 
@@ -583,19 +712,30 @@ def wXcirc(cm1_ds):
     
     return cm1_ds
 
+
 def SRH(cm1_ds, zbot=0, ztop=3, dim=2):
     """
     Compute storm-relative helicity over a given layer
-    NOTE: THIS FUNCTION HAS NOT BEEN TESTED YET!
-    Inputs:
-        cm1_ds = CM1 XArray dataset that includes all 3 velocity and vorticity components
-    Outputs:
-        cm1_ds = CM1 XArray dataset with SRH
-    Keywords:
-        zbot = Bottom of layer to compute SRH (km)
-        ztop = Top of layer to compute SRH (km)
-        dim = Option to compute SRH using the 2D or 3D velocity/vorticity vector
+
+    Parameters
+    ----------
+    cm1_ds : xarray dataset
+        CM1 dataset. Must contain all 3 velocity and vorticity components
+    zbot : float, optional
+        Bottom of layer to compute SRH (km)
+    ztop : float, optional
+        Top of layer to compute SRH (km)
+    dim : integer, optional
+        Option to compute SRH using the 2D or 3D vorticity/velocity vector
+        
+    Returns
+    -------
+    cm1_ds : xarray dataset
+        CM1 dataset that includes SRH (m^2 / s^2)
+
     """
+
+    warnings.warn('SRH function has not been tested yet')
 
     # Compute streamwise vorticity
 
@@ -628,14 +768,26 @@ def SRH(cm1_ds, zbot=0, ztop=3, dim=2):
 
 def advect(cm1_ds, field, wind):
     """
-    Compute advection of a field in a certain direction.
-    Note: Only works for fields defined on the scalar grid in CM1
-    Inputs:
-        cm1_ds = CM1 XArray dataset that includes 'field' and the 3D wind vector
-        field = Name of the field being advected
-        wind = Wind component advecting 'field'. Options: 'u', 'v', or 'w'
-    Outputs:
-        cm1_ds = CM1 XArray dataset with advection (named '<wind>adv<field>')
+    Compute advection of a field in a certain direction
+    
+    Parameters
+    ----------
+    cm1_ds : xarray dataset
+        CM1 dataset. Must contain 3D wind vector and field
+    field : string
+        Name of field being advected
+    wind : string
+        Wind component advecting 'field' (options: 'u', 'v', or 'w')
+        
+    Returns
+    -------
+    cm1_ds : xarray dataset
+        CM1 dataset that includes advection, named '<wind>adv<field>'
+        
+    Notes
+    -----
+    Only works for fields defined on the CM1 scalar grid
+    
     """
 
     if wind == 'u':
@@ -671,9 +823,9 @@ def diff_tot_energy(ds1, ds2, xlim=None, ylim=None):
 
     Parameters:
     -----------
-    ds1 : xr.Dataset
+    ds1 : xarray dataset
         Dataset of first CM1 simulation
-    ds2 : xr.Dataset
+    ds2 : xarray dataset
         Dataset of second CM1 simulation
     xlim : list, optional
         Domain over which to compute DTE (set to None to use entire domain)
@@ -736,21 +888,36 @@ def diff_tot_energy(ds1, ds2, xlim=None, ylim=None):
 
 def super_cp_metrics(cm1_ds, coord, r=5.0, cp_thres=-0.5, cp_z_max=2.0):
     """
-    Compute supercell cold pool metrics. 
-    Inputs:
-        cm1_ds = CM1 output DataSet
-        coord = Supercell centroid [(x, y) ordered pair in km]
-    Outputs:
-        min_thp = Minimum surface potential temperature perturbation (K)
-        avg_thp = Average surface cold pool potential temperature perturbation (K)
-        cp_ext = Surface cold pool areal extent (fraction)
-        Bint2d = Integrated surface cold pool buoyancy (m / s^2)
-        Bint3d = Integrated 3D cold pool buoyancy (m / s^2)
-        totB2d = Integrated surface buoyancy (m / s^2)
-    Keywords:
-        r = Distance from supercell centroid to compute cold pool metrics (km)
-        cp_thres = Maximum potential temperature perturbation to define the cold pool (K)
-        cp_z_max = Maximum height AGL to search for cold pool when computing Bint3d (km)
+    Compute supercell cold pool metrics
+    
+    Parameters
+    ----------
+    cm1_ds : xarray dataset 
+        CM1 dataset
+    coord : tuple or list 
+        Supercell centroid [(x, y) ordered pair in km]
+    r : float, optional
+        Distance from supercell centroid to compute cold pool metrics (km)
+    cp_thres : float, optional 
+        Maximum potential temperature perturbation to define the cold pool (K)
+    cp_z_max : float, optional 
+        Maximum height AGL to search for cold pool when computing Bint3d (km)
+        
+    Returns
+    -------
+    min_thp : float 
+        Minimum surface potential temperature perturbation (K)
+    avg_thp : float 
+        Average surface cold pool potential temperature perturbation (K)
+    cp_ext : float 
+        Surface cold pool areal extent (fraction)
+    Bint2d : float 
+        Integrated surface cold pool buoyancy (m / s^2)
+    Bint3d : float 
+        Integrated 3D cold pool buoyancy (m / s^2)
+    totB2d : float 
+        Integrated surface buoyancy (m / s^2)
+
     """
 
     # Determine index where z = cp_z_max
@@ -791,32 +958,57 @@ def super_cp_metrics(cm1_ds, coord, r=5.0, cp_thres=-0.5, cp_z_max=2.0):
 
 def super_str_metrics(cm1_ds, coord, r=5.0, circ_field ='circ2'):
     """
-    Compute supercell strength and tornadic potential metrics. 
-    Inputs:
-        cm1_ds = CM1 output DataSet
-        coord = Supercell centroid [(x, y) ordered pair in km]
-    Outputs:
-        wmax1km = Maximum 1-km updraft (m / s)
-        zvmax1km = Maximum 1-km zvort (m / s)
-        wmax = Maximum updraft (at any level)
-        corr = Correlation between 1-km W and 1-km zvort (unitless)
-        circmax1km = Maximum Eulerian circulation at 1 km AGL (m^2 / s)
-        circmaxsfc = Maximum Eulerian circulation at the lowest model level (m^2 / s)
-        uhmax = Maximum 2--5 km updraft helicity (m^2 / s^2)
-        wcircdist = Distance between 1-km W maximum and near-surface circulation maximum (km)
-        uhcircdist = Distance between supercell centroid and near-surface circulation maximum (km)
-        up_Mf = Average 1-km updraft (W > 5 m/s) mass flux within r of supercell centroid 
-            (kg / s / m^4). See updraft mass flux from Klees et al. (2016)
-        Mfcircmax = 1-km vertical mass flux computed using a 2-km radius ring centered on circmaxsfc 
-            (kg / s / m^4)
-        up_Mfcircmax = 1-km up_Mf computed using a 2-km radius ring centered on circmaxsfc 
-            (kg / s / m^4)
-        zvmaxsfc = Maximum zvort at LML (/ s)
-        zvminsfc = Minimum zvort at LML (/ s)
-        uparea = 1-km updraft (w > 5 m/s) (km^2)
-    Keywords:
-        r = Distance from supercell centroid to compute metrics (km)
-        circ_field = Name of Eulerian circulation field
+    Compute supercell strength and tornadic potential metrics
+    
+    Parameters
+    ----------
+    cm1_ds : xarray dataset 
+        CM1 dataset
+    coord : list or tuple 
+        Supercell centroid [(x, y) ordered pair in km]
+    r : float, optional 
+        Distance from supercell centroid to compute metrics (km)
+    circ_field : string, optional 
+        Name of Eulerian circulation field
+        
+    Returns
+    -------
+    wmax1km : float 
+        Maximum 1-km updraft (m / s)
+    zvmax1km : float 
+        Maximum 1-km zvort (m / s)
+    wmax : float 
+        Maximum updraft (at any level)
+    corr : float
+        Correlation between 1-km W and 1-km zvort (unitless)
+    circmax1km : float 
+        Maximum Eulerian circulation at 1 km AGL (m^2 / s)
+    circmaxsfc : float 
+        Maximum Eulerian circulation at the lowest model level (m^2 / s)
+    uhmax : float
+        Maximum 2--5 km updraft helicity (m^2 / s^2)
+    wcircdist : float 
+        Distance between 1-km W maximum and near-surface circulation maximum (km)
+    uhcircdist : float 
+        Distance between supercell centroid and near-surface circulation maximum (km)
+    up_Mf : float 
+        Average 1-km updraft (W > 5 m/s) mass flux within r of supercell centroid (kg / s / m^4)
+    Mfcircmax : float 
+        1-km vertical mass flux computed using a 2-km radius ring centered on circmaxsfc 
+        (kg / s / m^4)
+    up_Mfcircmax : float 
+        1-km up_Mf computed using a 2-km radius ring centered on circmaxsfc (kg / s / m^4)
+    zvmaxsfc : float 
+        Maximum zvort at LML (/ s)
+    zvminsfc : float 
+        Minimum zvort at LML (/ s)
+    uparea : float 
+        1-km updraft (w > 5 m/s) (km^2)
+        
+    Notes
+    -----
+    Updraft mass flux formula comes from Klees et al. (2016)
+
     """
 
     # Determine vertical index corresponding to 1 km AGL
@@ -899,18 +1091,31 @@ def super_str_metrics(cm1_ds, coord, r=5.0, circ_field ='circ2'):
 def id_tlv(cm1_ds, coord, r=5.0, zv_thres=0.1, prspert_thres=-200):
     """
     Identify tornado-like vortices (TLVs) 
-    Inputs:
-        cm1_ds = CM1 output DataSet
-        coord = Supercell centroid [(x, y) ordered pair in km]
-    Outputs:
-        x = X coordinate of TLV (km)
-        y = Y coordinate of TLV (km)
-        zv = Vertical vorticity of TLV (s^-1)
-        ppert = Pressure perturbation of TLV (Pa)
-    Keywords:
-        r = Distance from supercell centroid to search for TLVs (km)
-        zv_thres = Vertical vorticity threshold to identify TLVs (s^-1)
-        prspert_thres = Pressure perturbation threshold to identify TLVs (Pa)
+    
+    Parameters
+    ----------
+    cm1_ds : xarray dataset 
+        CM1 dataset
+    coord : list or tuple 
+        Supercell centroid [(x, y) ordered pair in km]
+    r : float, optional 
+        Distance from supercell centroid to search for TLVs (km)
+    zv_thres : float, optional
+        Vertical vorticity threshold to identify TLVs (s^-1)
+    prspert_thres : float, optional 
+        Pressure perturbation threshold to identify TLVs (Pa)
+    
+    Returns
+    -------
+    x : float 
+        X coordinate of TLV (km)
+    y : float 
+        Y coordinate of TLV (km)
+    zv : float 
+        Vertical vorticity of TLV (s^-1)
+    ppert : float 
+        Pressure perturbation of TLV (Pa)
+        
     """
 
     # Initialize output lists
@@ -944,6 +1149,8 @@ def id_ffd_rfd(cm1_ds, x_pts, y_pts, ffd_max_dist=15.0, rfd_max_dist=5.0, ffd_mi
                rfd_min_dist=0.5, meso_height=1.5, ref_thres=15.0, search_x=[-5, 5], 
                search_y=[-5, 5]):
     """
+    Identify the FFD and RFD
+    
     Identifies the (x, y) coordinates from x_pts and y_pts that lie within the forward-flank 
     downdraft (FFD) and rear-flank downdraft (RFD) using an Xarray dataset that comes from the 
     output of CM1. This algorithm is based on the definition of the forward flank from sect 2a of 
@@ -955,29 +1162,45 @@ def id_ffd_rfd(cm1_ds, x_pts, y_pts, ffd_max_dist=15.0, rfd_max_dist=5.0, ffd_mi
     a line drawn orthogonal to the major axis of the echo. Constraint (1) above does not apply to 
     the rear flank (but constraints (2) and (3) do). The mesocyclone is diagnosed using the maximum 
     azimuthal shear at meso_height AGL.
-    Inputs:
-        cm1_ds = Xarray dataset from CM1
-        x_pts = X-coordinates of input data points (km)
-        y_pts = Y-coordinates of input data points (km)
-    Outputs:
-        ffd_ind = Indices of the data points (x_pts, y_pts) that lie within the FFD
-        rfd_ind = Indices of the data points (x_pts, y_pts) that lie within the RFD
-        x_meso_ctr = X-coordinate of mesocyclone center (km)
-        y_meso_ctr = Y-coordinate of mesocyclone center (km)
-        m_major_axis = Slope of line that passes through the major axis of the storm
-        m_spine = Slope of the line orthogonal to m_major_axis
-    Keywords:
-        ffd_max_dist = Maximum distance a point within the FFD is allowed to lie from the 
-            mesocyclone center (km)
-        rfd_max_dist = Maximum distance a point within the RFD is allowed to lie from the 
-            mesocyclone center (km)
-        meso_height = Height AGL where the mesocyclone center is diagnosed
-        ref_thres = Minimum reflectivity of points considered to be in the precipitation shield 
-            (dBZ)
-        search_x = X-coordinates of the lower-left and upper-right corners of the box to search
-            for the mesocyclone center in (km)
-        search_y = Y-coordinates of the lower-left and upper-right corners of the box to search
-            for the mesocyclone center in (km)
+    
+    Parameters
+    ----------
+    cm1_ds : xarray dataset 
+        CM1 dataset
+    x_pts : float 
+        X-coordinates of input data points (km)
+    y_pts : float 
+        Y-coordinates of input data points (km)
+    ffd_max_dist : float, optional 
+        Maximum distance a point within the FFD is allowed to lie from the mesocyclone center (km)
+    rfd_max_dist : float, optional 
+        Maximum distance a point within the RFD is allowed to lie from the mesocyclone center (km)
+    meso_height : float, optional 
+        Height AGL where the mesocyclone center is diagnosed
+    ref_thres : float, optional 
+        Minimum reflectivity of points considered to be in the precipitation shield (dBZ)
+    search_x : float, optional 
+        X-coordinates of the lower-left and upper-right corners of the box to search for the 
+        mesocyclone center in (km)
+    search_y : float, optional 
+        Y-coordinates of the lower-left and upper-right corners of the box to search for the 
+        mesocyclone center in (km)
+    
+    Returns
+    -------
+    ffd_ind : integer 
+        Indices of the data points (x_pts, y_pts) that lie within the FFD
+    rfd_ind : integer 
+        Indices of the data points (x_pts, y_pts) that lie within the RFD
+    x_meso_ctr : float 
+        X-coordinate of mesocyclone center (km)
+    y_meso_ctr : float 
+        Y-coordinate of mesocyclone center (km)
+    m_major_axis : float 
+        Slope of line that passes through the major axis of the storm
+    m_spine : float 
+        Slope of the line orthogonal to m_major_axis
+    
     """
     
     # Determine the circulation center using the maximum vertical vorticity

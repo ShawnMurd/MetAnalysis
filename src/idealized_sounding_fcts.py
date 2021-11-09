@@ -217,7 +217,7 @@ def getTv(T, qv):
             
     Notes
     -----
-    See Markowski and Richardson (2010) eqn (2.19)i
+    See Markowski and Richardson (2010) eqn (2.19)
     
     """
     
@@ -281,6 +281,67 @@ def getTfromTv(Tv, qv):
     T = Tv * (1.0 + qv) / (1.0 + ((Rv / Rd) * qv))
     
     return T
+
+
+def getTrho(T, qv, qt):
+    """
+    Compute density temperature
+    
+    Parameters
+    ----------
+    T : array or float 
+        Temperature (K)
+    qv : array or float 
+        Water vapor mass mixing ratio (kg / kg)
+    qt : array or float
+        Total water mass mixing ratio (kg / kg)
+    
+    Returns
+    -------
+    Trho : array or float 
+        Density potential temperature (K)
+            
+    Notes
+    -----
+    See Markowski and Richardson (2010) eqn (2.21)
+    
+    """
+    
+    Rv = 461.5
+    Rd = 287.04
+    
+    Trho = T * (1.0 + ((Rv / Rd) * qv)) / (1.0 + qt)
+    
+    return Trho
+
+
+def thetarho(T, p, qv, qt):
+    """
+    Compute density potential temperature
+    
+    Parameters
+    ----------
+    T : array or float 
+        Temperature (K)
+    p : array or float
+        Pressure (Pa)
+    qv : array or float 
+        Water vapor mass mixing ratio (kg / kg)
+    qt : array or float
+        Total water mass mixing ratio (kg / kg)
+    
+    Returns
+    -------
+    thetarho : array or float 
+        Density potential temperature (K)
+            
+    Notes
+    -----
+    See Markowski and Richardson (2010) eqn (2.22)
+    
+    """
+    
+    return getTrho(theta(T, p), qv, qt)
 
 
 def getqv(RH, T, p):

@@ -69,6 +69,16 @@ def test_getTfromTv():
     assert T == pytest.approx(273.0, 0.001)
 
 
+def test_getTrho():
+    Trho = isf.getTrho(273.0, 0.005, 0.010)
+    assert Trho == pytest.approx(272.4699338, 0.001)
+
+
+def test_thetarho():
+    thrho = isf.thetarho(273.0, 80000.0, 0.005, 0.010)
+    assert thrho == pytest.approx(290.3875401, 0.001)
+
+
 def test_getqv():
     qv = isf.getqv(0.75, 285.0, 80000.0)
     assert qv == pytest.approx(0.00823486627799, 0.00005)
