@@ -23,6 +23,34 @@ import MetAnalysis.src.kine_fcts as kf
 
 
 #---------------------------------------------------------------------------------------------------
+# Helper Functions
+#---------------------------------------------------------------------------------------------------
+
+def _qfields(cm1_ds):
+    """
+    Return a list of all hydrometeor mass mixing ratio fields
+    
+    Parameters
+    ----------
+    cm1_ds : xarray dataset
+        CM1 dataset. Must contain hydrometeor mixing ratios
+        
+    Returns
+    -------
+    qlist : list
+        List of strings associated with the hydrometeor mixing ratio fields
+        
+    """
+    
+    qlist = []
+    for k in cm1_ds.keys():
+        if k[0] == 'q' and k[1] != 'v':
+            qlist.append(k)
+            
+    return qlist
+
+
+#---------------------------------------------------------------------------------------------------
 # Thermodynamic Functions
 #---------------------------------------------------------------------------------------------------
 
@@ -88,11 +116,8 @@ def thetarho_prime(cm1_ds):
     # Compute thr
 
     qt = cm1_ds['qv'].values
-    for f in ['c', 'r', 'i', 'i1', 'i2', 'g', 'hl']:
-        try:
-            qt = qt + cm1_ds['q'+f].values
-        except KeyError:
-            continue
+    for f in _qfields(cm1_ds):
+        qt = qt + cm1_ds['q'+f].values
 
     p = cm1_ds['p'].values
     T = isf.getTfromTheta(cm1_ds['th'].values, p)
@@ -212,6 +237,34 @@ def rh(cm1_ds):
 #---------------------------------------------------------------------------------------------------
 # Microphysical Functions
 #---------------------------------------------------------------------------------------------------
+
+def qtot(cm1_ds):
+    """
+    Compute total hydrometeor mixing ratio
+    
+    Parameters
+    ----------
+    cm1_ds : xarray dataset
+        CM1 dataset. Must contain hydrometeor mixing ratios
+    
+    Returns
+    -------
+    cm1_ds : xarray dataset
+        CM1 dataset that includes qtot (kg / kg)
+    
+    """
+    
+    fields = _qfields(cm1_ds)
+    qt = cm1_ds[fields[0]]
+    for f in fields[1:]:
+        qt = qt + cm1_ds[f]
+        
+    cm1_ds['qtot'] = qt
+    cm1_ds['qtot'].attrs['long_name'] = 'total hydrometeor mass mixing ratio'
+    cm1_ds['qtot'].attrs['units'] = 'kg / kg'
+    
+    return cm1_ds
+
 
 def Dnr(cm1_ds, mur=0.0):
     """
