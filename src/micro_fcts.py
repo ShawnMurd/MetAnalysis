@@ -83,7 +83,68 @@ def N0(N, q, mu=0, c=Cr, d=Dr):
     n0 = (N*(lmda**(mu+1.))) / spec.gamma(mu+1.)
     
     return n0
-    
+
+
+def invtaur(qr, nr, rho, T, p, mur=0):
+    """
+    Compute the inverse phase relaxation time for rain
+
+    Parameters
+    ----------
+    qr : array
+        Rain mass mixing ratio (kg / kg)
+    nr : aray
+        Rain number mixing ratio (# / kg)
+    rho : array
+        Air density (kg / m^3)
+    T : array
+        Air temperature (K)
+    p : array
+        Air pressure (Pa)
+    mur : float, optional
+        Rain DSD shape parameter
+
+    Returns
+    -------
+    itaur : array
+        Inverse phase relaxation time for rain (/s)
+
+    """
+
+    # Define constants
+
+    R = 287.04
+    rhow = 997.
+    AR = 841.99667
+    BR = 0.8
+    CR = (np.pi / 6.) * rhow
+    DR = 3.
+    f1 = 0.78
+    f2 = 0.308
+    cnst1 = 2.5 + BR/2. + mur
+    cnst2 = spec.gamma(cnst1)
+
+    # Environmental Parameters
+
+    mu = 1.496e-6*T**1.5/(T+120.)
+    Dv = 8.794e-5*T**1.81/p
+    Sc = mu / (rho*Dv)
+
+    # Add density correction to rain fall speed
+
+    rhosu = 85000./(R*273.15)
+    ARN = AR*((rhosu / rho)**0.54)
+
+    # Compute DSD parameters
+
+    lmda = lamda(nr, qr, mu=mur, c=CR, D=DR)
+    n0 = N0(nr, qr, mu=mur, c=CR, D=DR)
+
+    itaur = 2.*np.pi*rho*Dv*n0*((f1/(lmda**2.)) +
+                                (f2*(((ARN*rho)/mu)**0.5)*(Sc**(1./3.))*cnst2/(lmda**cnst1)))
+
+    return itaur
+   
 
 """
 End micro_fcts.py
