@@ -1637,7 +1637,7 @@ def effect_inflow(p, T, qv, min_cape=100, max_cin=250, adiabat=1):
 
 
 def param_vprof(p, T, qv, pbot, ptop, adiabat=1, ric=0, rjc=0, zc=1.5, bhrad=10.0, bvrad=1.5,
-                bptpert=0.0, maintain_rh=False, xloc=0.0, yloc=0.0, z0=0):
+                bptpert=0.0, maintain_rh=False, xloc=0.0, yloc=0.0, z0=0, heat_cap='full'):
     """
     Compute vertical profiles of sounding parameters and vertical profiles of parcel buoyancy
     
@@ -1725,7 +1725,8 @@ def param_vprof(p, T, qv, pbot, ptop, adiabat=1, ric=0, rjc=0, zc=1.5, bhrad=10.
     # Loop through each vertical level
     
     for i in range(ibot, itop+1):
-        out = getcape(p[i:], T[i:], qv[i:], source='sfc', adiabat=adiabat, returnB=True)
+        out = getcape(p[i:], T[i:], qv[i:], source='sfc', adiabat=adiabat, returnB=True, 
+                      heat_cap=heat_cap)
         for j, s in enumerate(params):
             param_dict[s][i] = out[j]
         B[i, :len(out[5])] = out[5]
