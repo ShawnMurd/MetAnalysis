@@ -752,7 +752,8 @@ def sounding_height(p, th, qv, z0):
 
 
 @jit(nopython=True, cache=True)
-def _lift_parcel(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0, z0=0.0):
+def _lift_parcel(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0, z0=0.0, 
+                 heat_cap='full'):
     """
     Compute various sounding parameters
 
@@ -781,6 +782,13 @@ def _lift_parcel(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0, z
         Pressure increment for integration of hydrostatic equation (Pa)
     z0 : float, optional
         Height corresponding to the first pressure level (m AGL)
+    heat_cap : string, optional
+        Heat capacity. Options:
+            'full' = Include effects of water vapor and condensate (because pseudoadiabatic 
+                ascent removes condensate as it forms, including condensate on the heat capacity 
+                only has a small impact on pseudoadiabatic ascent)
+            'vapor' = Only include effects of water vapor on heat capacity and gas constant
+            'const' = Use constant a constant heat capacity and gas constant
 
     Returns
     -------
@@ -970,8 +978,15 @@ def _lift_parcel(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0, z
                 lhv = lv1 - lv2*Tbar
                 lhs = ls1 - ls2*Tbar
 
-                rm  = rd + rv*qvbar
-                cpm = cp + cpv*qvbar + cpl*qlbar + cpi*qibar
+                if heat_cap == 'full':
+                    rm  = rd + rv*qvbar
+                    cpm = cp + cpv*qvbar + cpl*qlbar + cpi*qibar
+                elif heat_cap == 'vapor':
+                    rm  = rd + rv*qvbar
+                    cpm = cp + cpv*qvbar
+                elif heat_cap == 'const':
+                    rm  = rd
+                    cpm = cp
                 th2 = th1 * np.exp(lhv*(ql2 - ql1) / (cpm*Tbar)  
                                    + lhs*(qi2 - qi1) / (cpm*Tbar) 
                                    + (rm/cpm - rd/cp) * np.log(p2/p1))
@@ -1226,7 +1241,7 @@ def _parcel_descent(p, T, qv, p0, T0, qv0, idx, pinc=-10.0):
 
 
 def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0, returnB=False, 
-            returnTHV=False, returnQTOT=False, z0=0.0):
+            returnTHV=False, returnQTOT=False, z0=0.0, heat_cap='full'):
     """
     Compute various sounding parameters
 
@@ -1291,7 +1306,7 @@ def getcape(p, T, qv, source='sfc', adiabat=1, ml_depth=500.0, pinc=10.0, return
     """
     
     out = _lift_parcel(p, T, qv, source=source, adiabat=adiabat, ml_depth=ml_depth, pinc=pinc, 
-                       z0=z0)
+                       z0=z0, heat_cap=heat_cap)
     out = list(out)
     
     if not returnQTOT:
