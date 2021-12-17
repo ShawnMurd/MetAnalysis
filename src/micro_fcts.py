@@ -85,7 +85,7 @@ def N0(N, q, mu=0, c=Cr, d=Dr):
     return n0
 
 
-def invtaur(qr, nr, rho, T, p, mur=0, a=AR, b=BR, c=CR, d=DR):
+def invtaur(qr, nr, rho, T, p, mur=0, a=Ar, b=Br, c=Cr, d=Dr):
     """
     Compute the inverse phase relaxation time for rain
 
