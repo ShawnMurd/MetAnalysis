@@ -67,7 +67,7 @@ def N0(N, q, mu=0, c=Cr, d=Dr):
         Mass mixing ratio (kg / kg)
     mu : float, optional
         Shape parameter (unitless)
-    c : float, optiona
+    c : float, optional
         Mass-diameter coefficient
     d : float, optional
         Mass-diameter exponent (unitless)
@@ -79,13 +79,13 @@ def N0(N, q, mu=0, c=Cr, d=Dr):
     
     """
     
-    lmda = lamda(N, q, mu=mu, c=Cr, d=Dr)
+    lmda = lamda(N, q, mu=mu, c=c, d=d)
     n0 = (N*(lmda**(mu+1.))) / spec.gamma(mu+1.)
     
     return n0
 
 
-def invtaur(qr, nr, rho, T, p, mur=0):
+def invtaur(qr, nr, rho, T, p, mur=0, a=AR, b=BR, c=CR, d=DR):
     """
     Compute the inverse phase relaxation time for rain
 
@@ -103,6 +103,14 @@ def invtaur(qr, nr, rho, T, p, mur=0):
         Air pressure (Pa)
     mur : float, optional
         Rain DSD shape parameter
+    a : float, optional
+        Rain velocity-diameter relationship coefficient
+    b : float, optional
+        Rain velocity-diameter relationship exponent
+    c : float, optional
+        Rain mass-diameter relationship coefficient
+    d : float, optional
+        Rain mass-diameter relationship exponent
 
     Returns
     -------
@@ -115,13 +123,9 @@ def invtaur(qr, nr, rho, T, p, mur=0):
 
     R = 287.04
     rhow = 997.
-    AR = 841.99667
-    BR = 0.8
-    CR = (np.pi / 6.) * rhow
-    DR = 3.
     f1 = 0.78
     f2 = 0.308
-    cnst1 = 2.5 + BR/2. + mur
+    cnst1 = 2.5 + b/2. + mur
     cnst2 = spec.gamma(cnst1)
 
     # Environmental Parameters
@@ -133,12 +137,12 @@ def invtaur(qr, nr, rho, T, p, mur=0):
     # Add density correction to rain fall speed
 
     rhosu = 85000./(R*273.15)
-    ARN = AR*((rhosu / rho)**0.54)
+    ARN = a*((rhosu / rho)**0.54)
 
     # Compute DSD parameters
 
-    lmda = lamda(nr, qr, mu=mur, c=CR, D=DR)
-    n0 = N0(nr, qr, mu=mur, c=CR, D=DR)
+    lmda = lamda(nr, qr, mu=mur, c=c, d=d)
+    n0 = N0(nr, qr, mu=mur, c=c, d=d)
 
     itaur = 2.*np.pi*rho*Dv*n0*((f1/(lmda**2.)) +
                                 (f2*(((ARN*rho)/mu)**0.5)*(Sc**(1./3.))*cnst2/(lmda**cnst1)))
