@@ -234,6 +234,38 @@ def rh(cm1_ds):
     return cm1_ds
 
 
+def supersat(cm1_ds):
+    """
+    Compute absolute supersaturation (defined as qv - qvs)
+    
+    Parameters
+    ----------
+    cm1_ds : xarray dataset
+        CM1 dataset. Must contain th, p, and qv
+        
+    Returns
+    -------
+    cm1_ds : xarray dataset
+        CM1 dataset that includes supersat (unitless)
+        
+    """
+
+    p = cm1_ds['prs'].values
+    try:
+        T = cm1_ds['T'].values
+    except KeyError:
+        T = isf.getTfromTheta(cm1_ds['th'].values, p)
+
+    qvs = isf.get_qvs(T, p)
+
+    cm1_ds['supersat'] = xr.DataArray(cm1_ds['qv'].values - qvs, coords=cm1_ds['prs'].coords, 
+                                      dims=cm1_ds['prs'].dims)
+    cm1_ds['supersat'].attrs['long_name'] = 'absolute supersaturation w/r to liquid water'
+    cm1_ds['supersat'].attrs['units'] = 'kg / kg'
+
+    return cm1_ds
+
+
 #---------------------------------------------------------------------------------------------------
 # Microphysical Functions
 #---------------------------------------------------------------------------------------------------
