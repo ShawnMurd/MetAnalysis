@@ -56,8 +56,8 @@ def circ(u, v, x1d, y1d, r, nazimuths=72):
     
     # Determine grid spacing
     
-    dx = x1d[1] - x1d[0]
-    dy = y1d[1] - y1d[0]
+    dx = np.round_(x1d[1] - x1d[0], decimals=3)
+    dy = np.round_(y1d[1] - y1d[0], decimals=3)
     nx, ny = x1d.size, y1d.size
     
     # Determine starting and ending indices for loop (must start with x and y > r)
@@ -159,6 +159,80 @@ def avg_var(var, x1d, y1d, r):
                                / kernel.sum())
             
     return avg
+
+
+@jit(nopython=True, cache=True)
+def azprof(var, ctr, x1d, y1d, radii, step='flexible', avg=True):
+    """
+    Compute the azimuthal average or sum of a field at several radii. 
+    
+    It is assumed that there is constant grid spacing in the x and y directions (the z dimension 
+    can be stretched). 
+    
+    Parameters
+    ----------
+    var : array
+        Variable to take azimuthal average of, shape (nt, nz, ny, nx)
+    ctr: array
+        Location of r = 0 as a coordinate pair (km)
+    x1d : array
+        1D array of x coordinates (km)
+    y1d : array 
+        1D array of y coordinates (km)
+    radii : array
+        Radii at which to compute azimuthal averages (km)
+    step: float, optional
+        Distance between interpolation points along a circuit (km)
+            If 'flexible is selected, step = min(dx, dy)
+    avg : boolean, optional
+        Option to compute the azimuthal average (if set to False, the azimuthal sum is returned)
+        
+    Returns
+    -------
+    prof : array 
+        Azimuthal profiles, shape (nt, nz, nr)
+    
+    Notes
+    -----
+    Code loosely based on Paul Markowski's circdist.f program
+    
+    """
+    
+    # Determine grid spacing
+    
+    dx = np.round_(x1d[1] - x1d[0], decimals=3)
+    dy = np.round_(y1d[1] - y1d[0], decimals=3)
+    nt = var.shape[0]
+    nz = var.shape[1]
+    if step == 'flexible':
+        step = min(dx, dy)
+    
+    # Loop over each radii
+    
+    prof = np.zeros((nt, nz, radii.size))
+    for i, r in enumerate(radii):
+        nazimuths = int(2*np.pi*r/step)
+        for angle in np.arange(0, 2 * np.pi, 2 * np.pi / nazimuths):
+            xtmp = ctr[0] + r * np.cos(angle)
+            ytmp = ctr[1] + r * np.sin(angle)
+                
+            # Bilinearly interpolate var to (xtmp, ytmp)
+                
+            sx = int((xtmp - x1d[0]) / dx)
+            sy = int((ytmp - y1d[0]) / dy)
+            
+            a = (xtmp - x1d[sx]) / dx
+            b = (ytmp - y1d[sy]) / dy
+                
+            prof[:, :, i] = prof[:, :, i] + ((1 - a) * (1 - b) * var[:, :, sy, sx] +
+                                             a * (1 - b) * var[:, :, sy, sx+1] +
+                                             (1 - a) * b * var[:, :, sy+1, sx] +
+                                             a * b * var[:, :, sy, sx])
+
+        if avg:
+            prof[:, :, i] = float(prof[:, :, i] / nazimuths)               
+            
+    return prof
 
 
 """
