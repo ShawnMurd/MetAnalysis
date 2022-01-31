@@ -162,7 +162,7 @@ def avg_var(var, x1d, y1d, r):
 
 
 @jit(nopython=True, cache=True)
-def azprof(var, xctr, yctr, x1d, y1d, radii, step='flexible', avg=True):
+def azprof(var, xctr, yctr, x1d, y1d, radii, step=0.2, avg=True):
     """
     Compute the azimuthal average or sum of a field at several radii. 
     
@@ -185,7 +185,6 @@ def azprof(var, xctr, yctr, x1d, y1d, radii, step='flexible', avg=True):
         Radii at which to compute azimuthal averages (km)
     step: float, optional
         Distance between interpolation points along a circuit (km)
-            If 'flexible is selected, step = min(dx, dy)
     avg : boolean, optional
         Option to compute the azimuthal average (if set to False, the azimuthal sum is returned)
         
@@ -206,8 +205,6 @@ def azprof(var, xctr, yctr, x1d, y1d, radii, step='flexible', avg=True):
     dy = 0.001*int((y1d[1] - y1d[0])*1000)
     nt = var.shape[0]
     nz = var.shape[1]
-    if step == 'flexible':
-        step = min(dx, dy)
     
     # Loop over each time and radii
     
