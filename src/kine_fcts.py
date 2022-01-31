@@ -56,8 +56,8 @@ def circ(u, v, x1d, y1d, r, nazimuths=72):
     
     # Determine grid spacing
     
-    dx = np.round_(x1d[1] - x1d[0], decimals=3)
-    dy = np.round_(y1d[1] - y1d[0], decimals=3)
+    dx = round(x1d[1] - x1d[0], ndigits=3)
+    dy = round(y1d[1] - y1d[0], ndigits=3)
     nx, ny = x1d.size, y1d.size
     
     # Determine starting and ending indices for loop (must start with x and y > r)
@@ -202,8 +202,8 @@ def azprof(var, xctr, yctr, x1d, y1d, radii, step='flexible', avg=True):
     
     # Determine grid spacing
     
-    dx = np.round_(x1d[1] - x1d[0], decimals=3)
-    dy = np.round_(y1d[1] - y1d[0], decimals=3)
+    dx = round(x1d[1] - x1d[0], ndigits=3)
+    dy = round(y1d[1] - y1d[0], ndigits=3)
     nt = var.shape[0]
     nz = var.shape[1]
     if step == 'flexible':
