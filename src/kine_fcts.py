@@ -162,7 +162,7 @@ def avg_var(var, x1d, y1d, r):
 
 
 @jit(nopython=True, cache=True)
-def azprof(var, ctr, x1d, y1d, radii, step='flexible', avg=True):
+def azprof(var, xctr, yctr, x1d, y1d, radii, step='flexible', avg=True):
     """
     Compute the azimuthal average or sum of a field at several radii. 
     
@@ -173,8 +173,10 @@ def azprof(var, ctr, x1d, y1d, radii, step='flexible', avg=True):
     ----------
     var : array
         Variable to take azimuthal average of, shape (nt, nz, ny, nx)
-    ctr: array
-        Location of r = 0 as a coordinate pair (km)
+    xctr : array
+        x location of centroid, shape (nt) (km)
+    yctr : array
+        y location of centroid, shape (nt) (km)
     x1d : array
         1D array of x coordinates (km)
     y1d : array 
@@ -207,30 +209,31 @@ def azprof(var, ctr, x1d, y1d, radii, step='flexible', avg=True):
     if step == 'flexible':
         step = min(dx, dy)
     
-    # Loop over each radii
+    # Loop over each time and radii
     
     prof = np.zeros((nt, nz, radii.size))
-    for i, r in enumerate(radii):
-        nazimuths = int(2*np.pi*r/step)
-        for angle in np.arange(0, 2 * np.pi, 2 * np.pi / nazimuths):
-            xtmp = ctr[0] + r * np.cos(angle)
-            ytmp = ctr[1] + r * np.sin(angle)
+    for i in range(nt):
+        for j, r in enumerate(radii):
+            nazimuths = int(2*np.pi*r/step)
+            for angle in np.arange(0, 2 * np.pi, 2 * np.pi / nazimuths):
+                xtmp = xctr[i] + r * np.cos(angle)
+                ytmp = yctr[i] + r * np.sin(angle)
                 
-            # Bilinearly interpolate var to (xtmp, ytmp)
-                
-            sx = int((xtmp - x1d[0]) / dx)
-            sy = int((ytmp - y1d[0]) / dy)
+                # Bilinearly interpolate var to (xtmp, ytmp)
+                    
+                sx = int((xtmp - x1d[0]) / dx)
+                sy = int((ytmp - y1d[0]) / dy)
             
-            a = (xtmp - x1d[sx]) / dx
-            b = (ytmp - y1d[sy]) / dy
+                a = (xtmp - x1d[sx]) / dx
+                b = (ytmp - y1d[sy]) / dy
                 
-            prof[:, :, i] = prof[:, :, i] + ((1 - a) * (1 - b) * var[:, :, sy, sx] +
-                                             a * (1 - b) * var[:, :, sy, sx+1] +
-                                             (1 - a) * b * var[:, :, sy+1, sx] +
-                                             a * b * var[:, :, sy, sx])
+                prof[i, :, j] = prof[i, :, j] + ((1 - a) * (1 - b) * var[i, :, sy, sx] +
+                                                 a * (1 - b) * var[i, :, sy, sx+1] +
+                                                 (1 - a) * b * var[i, :, sy+1, sx] +
+                                                 a * b * var[i, :, sy, sx])
 
-        if avg:
-            prof[:, :, i] = float(prof[:, :, i] / nazimuths)               
+            if avg:
+                prof[i, :, j] = float(prof[i, :, j] / nazimuths)               
             
     return prof
 
