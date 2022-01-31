@@ -230,7 +230,7 @@ def azprof(var, xctr, yctr, x1d, y1d, radii, step=0.2, avg=True):
                                                  a * b * var[i, :, sy, sx])
 
             if avg:
-                prof[i, :, j] = float(prof[i, :, j] / nazimuths)               
+                prof[i, :, j] = prof[i, :, j] / nazimuths
             
     return prof
 
