@@ -56,8 +56,8 @@ def circ(u, v, x1d, y1d, r, nazimuths=72):
     
     # Determine grid spacing
     
-    dx = round(x1d[1] - x1d[0], ndigits=3)
-    dy = round(y1d[1] - y1d[0], ndigits=3)
+    dx = x1d[1] - x1d[0]
+    dy = y1d[1] - y1d[0]
     nx, ny = x1d.size, y1d.size
     
     # Determine starting and ending indices for loop (must start with x and y > r)
@@ -135,8 +135,8 @@ def avg_var(var, x1d, y1d, r):
     
     # Determine grid spacing
     
-    dx = x1d[1] - x1d[0]
-    dy = y1d[1] - y1d[0]
+    dx = 0.001*int((x1d[1] - x1d[0])*1000)
+    dy = 0.001*int((y1d[1] - y1d[0])*1000)
     
     # Create kernel for 2D convolution
     
@@ -202,8 +202,8 @@ def azprof(var, xctr, yctr, x1d, y1d, radii, step='flexible', avg=True):
     
     # Determine grid spacing
     
-    dx = round(x1d[1] - x1d[0], ndigits=3)
-    dy = round(y1d[1] - y1d[0], ndigits=3)
+    dx = 0.001*int((x1d[1] - x1d[0])*1000)
+    dy = 0.001*int((y1d[1] - y1d[0])*1000)
     nt = var.shape[0]
     nz = var.shape[1]
     if step == 'flexible':
