@@ -50,6 +50,43 @@ def _qfields(cm1_ds):
     return qlist
 
 
+def _sgrid_spacing(cm1_ds):
+    """
+    Return arrays of dx, dy, and dz for the scalar grid
+    
+    Parameters
+    ----------
+    cm1_ds : xarray dataset
+        CM1 dataset
+        
+    Returns
+    -------
+    dx : array
+        1-D array of grid spacing in the x direction (km)
+    dy : array
+        1-D array of grid spacing in the y direction (km)
+    dz : array
+        1-D array of grid spacing in the z direction (km)
+        
+    """
+    
+    version = float(cm1_ds.attrs['CM1 version'][4:])
+    if version < 20:
+        xfield = 'nip1'
+        yfield = 'njp1'
+        zfield = 'nkp1'
+    else:
+        xfield = 'xf'
+        yfield = 'yf'
+        zfield = 'zf'
+        
+    dx = np.round_(cm1_ds[xfield][1:].values - cm1_ds[xfield][:-1].values, decimals=5)
+    dy = np.round_(cm1_ds[yfield][1:].values - cm1_ds[yfield][:-1].values, decimals=5)
+    dz = np.round_(cm1_ds[zfield][1:].values - cm1_ds[zfield][:-1].values, decimals=5)
+            
+    return dx, dy, dz
+
+
 #---------------------------------------------------------------------------------------------------
 # Thermodynamic Functions
 #---------------------------------------------------------------------------------------------------
@@ -443,6 +480,32 @@ def Dm(cm1_ds, qfield='qr', nfield='nr', rho=1000., name='mmDr'):
     cm1_ds[name].attrs['long_name'] = 'mean mass diameter'
     cm1_ds[name].attrs['units'] = 'mm'
 
+    return cm1_ds
+
+
+def convert_mix(cm1_ds, field):
+    """
+    Convert mixing ratio to total amount in each grid cell
+    
+    Parameters
+    ----------
+    cm1_ds : xarray dataset
+        CM1 dataset. Must contain 'field' and air density (rho)
+    field : string
+        Name of mixing ratio field
+        
+    Returns
+    -------
+    cm1_ds : xarray dataset
+        CM1 dataset with the field 'field_tot'
+    
+    """
+    
+    dx, dy, dz = _sgrid_spacing(cm1_ds)
+    vol3d = (dx[np.newaxis, np.newaxis, :] * dy[np.newaxis, :, np.newaxis] * 
+             dz[:, np.newaxis, np.newaxis] * 1e9)
+    cm1_ds[field+'_tot'] = cm1_ds[field] * cm1_ds['rho'] * vol3d
+    
     return cm1_ds
 
 
