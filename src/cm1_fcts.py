@@ -502,9 +502,12 @@ def convert_mix(cm1_ds, field):
     """
     
     dx, dy, dz = _sgrid_spacing(cm1_ds)
-    vol3d = (dx[np.newaxis, np.newaxis, :] * dy[np.newaxis, :, np.newaxis] * 
-             dz[:, np.newaxis, np.newaxis] * 1e9)
-    cm1_ds[field+'_tot'] = cm1_ds[field] * cm1_ds['rho'] * vol3d
+    tdim = np.ones(cm1_ds[field].shape[0])
+    vol4d = (dx[np.newaxis, np.newaxis, np.newaxis, :] * 
+             dy[np.newaxis, np.newaxis, :, np.newaxis] * 
+             dz[np.newaxis, :, np.newaxis, np.newaxis] * 
+             tdim[:, np.newaxis, np.newaxis, np.newaxis] * 1e9)
+    cm1_ds[field+'_tot'] = cm1_ds[field] * cm1_ds['rho'] * vol4d
     
     return cm1_ds
 
