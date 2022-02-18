@@ -20,6 +20,7 @@ import warnings
 import MetAnalysis.src.idealized_sounding_fcts as isf
 import MetAnalysis.src.largest_area as la
 import MetAnalysis.src.kine_fcts as kf
+import MetAnalysis.src.micro_fcts as mf
 
 
 #---------------------------------------------------------------------------------------------------
@@ -479,6 +480,50 @@ def Dm(cm1_ds, qfield='qr', nfield='nr', rho=1000., name='mmDr'):
     cm1_ds[name] = xr.DataArray(Dm, coords=cm1_ds[qfield].coords, dims=cm1_ds[qfield].dims)
     cm1_ds[name].attrs['long_name'] = 'mean mass diameter'
     cm1_ds[name].attrs['units'] = 'mm'
+
+    return cm1_ds
+
+
+def Vm(cm1_ds, qfield='qr', nfield='nr', mu=0, a=mf.Ar, b=mf.Br, c=mf.Cr, d=mf.Dr, name='Vmr'):
+    """
+    Computes the mean mass-weighted fallspeed
+
+    Parameters
+    ----------
+    cm1_ds : xarray dataset
+        CM1 dataset
+    qfield : string, optional
+        Name of mass mixing ratio field
+    nfield : string, optional
+        Name of number mixing ratio field
+    mu : float, optional
+        PSD shape parameter
+    a : float, optional
+        Velocity-diameter relationship coefficient (m^{1-b} s^{-1})
+    b : float, optional
+        Velocity-diameter relationship exponent (unitless)
+    c : float, optional
+        Mass-diameter relationship coefficient
+    d : float, optional
+        Mass-diameter relationship exponent (unitless)
+    name : string, optional
+        Name of field to add to dataset
+
+    Returns
+    -------
+    cm1_ds : xarray dataset
+        CM1 output file with the field given by name
+
+    """
+
+    q = ma.masked_array(cm1_ds[qfield].values, mask=(cm1_ds[qfield] < 0.01e-3))
+    n = cm1_ds[nfield].values
+    lmda = mf.lamda(n, q, mu=mu, c=c, d=d)
+    v = mf.Vm(lmda, mu=mu, a=a, b=b, d=d)
+
+    cm1_ds[name] = xr.DataArray(v, coords=cm1_ds[qfield].coords, dims=cm1_ds[qfield].dims)
+    cm1_ds[name].attrs['long_name'] = 'mean mass-weighted fallspeed'
+    cm1_ds[name].attrs['units'] = 'm/s'
 
     return cm1_ds
 

@@ -148,7 +148,36 @@ def invtaur(qr, nr, rho, T, p, mur=0, a=Ar, b=Br, c=Cr, d=Dr):
                                 (f2*(((ARN*rho)/mu)**0.5)*(Sc**(1./3.))*cnst2/(lmda**cnst1)))
 
     return itaur
-   
+
+
+def Vm(lmda, mu=0, a=Ar, b=Br, d=Dr):
+    """
+    Compute the mean mass-weighted fallspeed for a PSD following a gamma distribution
+    
+    Parameters
+    ----------
+    lmda : array
+        PSD slope parameter (/m)
+    mu : float, optional
+        PSD shape parameter
+    a : float, optional
+        Velocity-diameter relationship coefficient (m^{1-b} s^{-1})
+    b : float, optional
+        Velocity-diameter relationship exponent (unitless)
+    d : float, optional
+        Mass-diameter relationship exponent (unitless)
+    
+    Returns
+    -------
+    v : array
+        Mean mass-weighted fallspeed (m/s)
+        
+    """
+    
+    v = a * spec.gamma(b + d + mu + 1.) / spec.gamma(d + mu + 1.)
+    
+    return v
+        
 
 """
 End micro_fcts.py
