@@ -416,7 +416,7 @@ def Dmr(cm1_ds, mur=0.0):
 
 def Dng(cm1_ds, rhog, CG, DG):
     """
-    Compute number-weighted mean RIS diameter (for qg > 0.01 g / kg)
+    Compute number-weighted mean RIS diameter assuming mu = 0 (for qg > 0.01 g / kg)
     
     Parameters
     ----------
@@ -441,6 +441,41 @@ def Dng(cm1_ds, rhog, CG, DG):
 
     lamg = (spec.gamma(1.0 + DG) * CG * ng / qg) ** (1./DG)
     Dg = ma.masked_array(1.0 / lamg, mask=(qg < 0.01e-3)) * 1e3
+
+    cm1_ds['Dng'] = xr.DataArray(Dg, coords=cm1_ds['qg'].coords, dims=cm1_ds['qg'].dims)
+    cm1_ds['Dng'].attrs['long_name'] = 'number-weighted mean RIS diameter'
+    cm1_ds['Dng'].attrs['units'] = 'mm'
+
+    return cm1_ds
+
+
+def Dmg(cm1_ds, rhog, CG, DG):
+    """
+    Compute mass-weighted mean RIS diameter assuming mu = 0 (for qg > 0.01 g / kg)
+    
+    Parameters
+    ----------
+    cm1_ds : xarray dataset
+        CM1 dataset. Must contain RIS mass and number mixing ratios
+    rhog : float, optional
+        RIS density (kg / m^3)
+    CG : float, optional
+        RIS mass-diameter coefficient
+    DG : float, optional
+        RIS mass-diameter exponent
+        
+    Returns
+    -------
+    cm1_ds : xarray dataset
+        CM1 dataset that includes Dg (mm)
+
+    """
+
+    qg = cm1_ds['qg'].values
+    ng = cm1_ds['ncg'].values
+
+    lamg = (spec.gamma(1.0 + DG) * CG * ng / qg) ** (1./DG)
+    Dg = ma.masked_array(spec.gamma(2.+DG) / (lamg * spec.gamma(1.+DG)), mask=(qg < 0.01e-3)) * 1e3
 
     cm1_ds['Dng'] = xr.DataArray(Dg, coords=cm1_ds['qg'].coords, dims=cm1_ds['qg'].dims)
     cm1_ds['Dng'].attrs['long_name'] = 'number-weighted mean RIS diameter'
