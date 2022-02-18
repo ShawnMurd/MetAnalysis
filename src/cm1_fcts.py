@@ -477,9 +477,9 @@ def Dmg(cm1_ds, rhog, CG, DG):
     lamg = (spec.gamma(1.0 + DG) * CG * ng / qg) ** (1./DG)
     Dg = ma.masked_array(spec.gamma(2.+DG) / (lamg * spec.gamma(1.+DG)), mask=(qg < 0.01e-3)) * 1e3
 
-    cm1_ds['Dng'] = xr.DataArray(Dg, coords=cm1_ds['qg'].coords, dims=cm1_ds['qg'].dims)
-    cm1_ds['Dng'].attrs['long_name'] = 'number-weighted mean RIS diameter'
-    cm1_ds['Dng'].attrs['units'] = 'mm'
+    cm1_ds['Dmg'] = xr.DataArray(Dg, coords=cm1_ds['qg'].coords, dims=cm1_ds['qg'].dims)
+    cm1_ds['Dmg'].attrs['long_name'] = 'number-weighted mean RIS diameter'
+    cm1_ds['Dmg'].attrs['units'] = 'mm'
 
     return cm1_ds
 
