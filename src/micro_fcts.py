@@ -174,7 +174,7 @@ def Vm(lmda, mu=0, a=Ar, b=Br, d=Dr):
         
     """
     
-    v = a * spec.gamma(b + d + mu + 1.) / spec.gamma(d + mu + 1.)
+    v = a * spec.gamma(b + d + mu + 1.) / (spec.gamma(d + mu + 1.) * (lmda**b))
     
     return v
         
