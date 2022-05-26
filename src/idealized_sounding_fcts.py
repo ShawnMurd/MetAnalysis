@@ -433,6 +433,36 @@ def getTd(T, p, qv):
     return Td
 
 
+def getqvFromTd(T, p, Td):
+    """
+    Compute water vapor mass mixing ratio from dewpoint
+
+    Parameters
+    ----------
+    T : array or float
+        Temperature (K)
+    p : array or float
+        Pressure (Pa)
+    Td : array or float
+        Dewpoint (K)
+
+    Returns
+    -------
+    qv : array or float
+        Water vapor mass mixing ratio
+    
+    Notes
+    -----
+    See Markowski and Richardson (2010) eqn (2.13)
+
+    """
+    
+    RH = get_es(Td) / get_es(T)
+    qv = getqv(RH, T, p)
+    
+    return qv
+
+
 @jit(nopython=True, cache=True)
 def buoy(T_p, p_p, qv_p, T_env, p_env, qv_env):
     """

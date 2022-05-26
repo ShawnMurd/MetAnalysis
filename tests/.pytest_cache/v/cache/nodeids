@@ -36,5 +36,6 @@
   "test_largest_area.py::test_largestArea",
   "test_largest_area.py::test_weighted_avg_ctr",
   "test_idealized_sounding_fcts.py::test_getTrho",
-  "test_idealized_sounding_fcts.py::test_thetarho"
+  "test_idealized_sounding_fcts.py::test_thetarho",
+  "test_idealized_sounding_fcts.py::test_getqvFromTd"
 ]
